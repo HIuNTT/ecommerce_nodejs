@@ -1,0 +1,17 @@
+version: '3.9'
+services:
+  dev-database:
+    image: postgres:16.0
+    container_name: dev-database
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: shopecommerce
+
+#Create container, network,... from "docker-composer" file:
+#-d: daemon/background mode
+#docker compose up -d
+#If you want to start only specified services/container:
+#docker compose up -d dev-database -d
