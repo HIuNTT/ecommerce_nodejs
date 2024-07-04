@@ -1,5 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
+import { errorResponse, successResponse } from '../../helpers/response.helper';
+import { PrismaService } from '../../prisma/prisma.service';
+import { BodyEmail } from '../otp/dto/verify-otp.dto';
 
 @Injectable()
 export class UserService {
@@ -36,9 +38,24 @@ export class UserService {
                 delete user.avatarUrl;
             }
 
-            return user;
+            return new successResponse(user, HttpStatus.OK, 'success');
         } catch (error) {
             throw error;
+        }
+    }
+
+    //Kiểm tra xem email đã được dùng chưa (trong trường hợp lúc đăng ký không điền email)
+    async checkEmailAvailable(payload: BodyEmail) {
+        const user = await this.prisma.user.findFirst({
+            where: {
+                email: payload.email,
+            },
+        });
+
+        if (user) {
+            return new errorResponse(HttpStatus.BAD_REQUEST, 'Email already used');
+        } else {
+            return new successResponse(null, HttpStatus.OK, 'Email available');
         }
     }
 }

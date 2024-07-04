@@ -6,9 +6,14 @@ services:
     ports:
       - "5434:5432"
     environment:
+      TZ: Asia/Ho_Chi_Minh
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123456
       POSTGRES_DB: shopecommerce
+    volumes: 
+      - "/etc/timezone:/etc/timezone:ro" 
+      - "/etc/localtime:/etc/localtime:ro"
+
 
 #Create container, network,... from "docker-composer" file:
 #-d: daemon/background mode
