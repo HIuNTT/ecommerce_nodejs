@@ -14,6 +14,7 @@ async function bootstrap() {
         defaultVersion: '1',
     });
 
+    app.enableCors();
     app.setViewEngine('hbs');
     app.setGlobalPrefix('api');
     await app.listen(3000);

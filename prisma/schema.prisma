@@ -20,7 +20,7 @@ enum Role {
 }
 
 model User {
-  id              String    @id @default(cuid())
+  id              String    @id @default(dbgenerated("nanoid(6)"))
   username        String    @unique @db.VarChar(255)
   fullname        String    @db.VarChar(255)
   avatarUrl       String?   @db.VarChar(255)
@@ -34,20 +34,22 @@ model User {
   isActived       Boolean   @default(true)
   addresses       Address[]
   otps            Otp[]
-  createdAt       DateTime  @default(now()) @db.Timestamptz(0)
-  updatedAt       DateTime  @updatedAt @db.Timestamptz(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(0)
+  updatedAt DateTime @updatedAt @db.Timestamptz(0)
 
   @@map("users")
 }
 
 model Address {
-  id        String   @id @default(cuid())
-  province  String   @db.VarChar(255) // Tỉnh/Thành phố
-  district  String   @db.VarChar(255) // Quận/Huyện
-  commune   String   @db.VarChar(255) // Phường/Xã
-  noHouse   String   @db.VarChar(255) // Số nhà
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
+  id       String @id @default(cuid())
+  province String @db.VarChar(255) // Tỉnh/Thành phố
+  district String @db.VarChar(255) // Quận/Huyện
+  commune  String @db.VarChar(255) // Phường/Xã
+  noHouse  String @db.VarChar(255) // Số nhà
+  user     User   @relation(fields: [userId], references: [id])
+  userId   String
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -55,12 +57,81 @@ model Address {
 }
 
 model Otp {
-  id         String   @id @default(cuid())
-  code       String   @db.VarChar(6)
-  user       User     @relation(fields: [userId], references: [id])
+  id         String @id @default(cuid())
+  code       String @db.VarChar(6)
+  user       User   @relation(fields: [userId], references: [id])
   userId     String
-  verifyType String   @db.VarChar(255)
-  createdAt  DateTime @default(now())
+  verifyType String @db.VarChar(255)
+
+  createdAt DateTime @default(now())
 
   @@map("otps")
+}
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String
+  slug        String     @unique
+  parentCatId String?
+  imageUrl    String?
+  level       Int        @default(1)
+  isActived   Boolean    @default(true)
+  banners     Banner[]
+  parent      Category?  @relation("ParentCategory", fields: [parentCatId], references: [id])
+  children    Category[] @relation("ParentCategory")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("categories")
+}
+
+model Banner {
+  id         String    @id @default(cuid())
+  imageUrl   String
+  slot       Int
+  isActived  Boolean   @default(true)
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("banners")
+}
+
+model Item {
+  id           String  @id @default(cuid())
+  name         String
+  barcode      String
+  slug         String  @unique
+  thumbnail    String
+  stock        Int
+  weight       String
+  importPrice  Decimal @db.Decimal(11, 2)
+  price        Decimal @db.Decimal(11, 2)
+  oldPrice     Decimal @default(0) @db.Decimal(11, 2)
+  isActived    Boolean @default(true)
+  isBestseller Boolean @default(false)
+  description  String
+  images       Image[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("items")
+}
+
+model Image {
+  id        String  @id @default(cuid())
+  imageUrl  String
+  slot      Int
+  isActived Boolean @default(true)
+  item      Item    @relation(fields: [itemId], references: [id])
+  itemId    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("images")
 }
