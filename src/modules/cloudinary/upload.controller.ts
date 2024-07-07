@@ -3,6 +3,7 @@ import {
     Controller,
     HttpCode,
     HttpStatus,
+    ParseFilePipe,
     Post,
     UploadedFile,
     UploadedFiles,
@@ -11,6 +12,7 @@ import {
 import { CloudinaryService } from './cloudinary.service';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { CloudinaryResponse } from './interfaces/cloudinary-response';
+import { fileValidators } from './validators/file.validator';
 
 @Controller('upload')
 export class UploadController {
@@ -20,7 +22,14 @@ export class UploadController {
     @Post('banner')
     @UseInterceptors(FilesInterceptor('files'))
     @HttpCode(HttpStatus.OK)
-    async uploadBanners(@UploadedFiles() files: Array<Express.Multer.File>): Promise<CloudinaryResponse[]> {
+    async uploadBanners(
+        @UploadedFiles(
+            new ParseFilePipe({
+                validators: fileValidators,
+            }),
+        )
+        files: Array<Express.Multer.File>,
+    ): Promise<CloudinaryResponse[]> {
         if (files.length === 0) {
             throw new BadRequestException('No files uploaded');
         }
@@ -34,7 +43,14 @@ export class UploadController {
     @Post('category')
     @UseInterceptors(FileInterceptor('file'))
     @HttpCode(HttpStatus.OK)
-    async uploadCategoryImage(@UploadedFile() file: Express.Multer.File): Promise<CloudinaryResponse> {
+    async uploadCategoryImage(
+        @UploadedFile(
+            new ParseFilePipe({
+                validators: fileValidators,
+            }),
+        )
+        file: Express.Multer.File,
+    ): Promise<CloudinaryResponse> {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
@@ -48,7 +64,14 @@ export class UploadController {
     @Post('item-thumbnail')
     @UseInterceptors(FileInterceptor('file'))
     @HttpCode(HttpStatus.OK)
-    async uploadProductImage(@UploadedFile() file: Express.Multer.File): Promise<CloudinaryResponse> {
+    async uploadProductImage(
+        @UploadedFile(
+            new ParseFilePipe({
+                validators: fileValidators,
+            }),
+        )
+        file: Express.Multer.File,
+    ): Promise<CloudinaryResponse> {
         if (!file) {
             throw new BadRequestException('No file uploaded');
         }
@@ -62,7 +85,14 @@ export class UploadController {
     @Post('item-detail-image')
     @UseInterceptors(FilesInterceptor('files'))
     @HttpCode(HttpStatus.OK)
-    async uploadProductImages(@UploadedFiles() files: Array<Express.Multer.File>): Promise<CloudinaryResponse[]> {
+    async uploadProductImages(
+        @UploadedFiles(
+            new ParseFilePipe({
+                validators: fileValidators,
+            }),
+        )
+        files: Array<Express.Multer.File>,
+    ): Promise<CloudinaryResponse[]> {
         if (files.length === 0) {
             throw new BadRequestException('No files uploaded');
         }
