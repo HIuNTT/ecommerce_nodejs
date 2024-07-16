@@ -1,16 +1,24 @@
-import { Exclude } from 'class-transformer';
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
 
-export class CategoryDTO {
-    @Exclude()
+export class CreateCategoryDTO {
+    @IsNotEmpty()
     name: string;
 
     @IsNotEmpty()
     slug: string;
 
     @IsOptional()
-    description: string;
+    @IsNumber()
+    parentCatId?: number;
 
+    @IsOptional()
     imageUrl?: string;
-    isActived?: boolean;
+
+    @IsOptional()
+    @IsNumber()
+    slot?: number;
+
+    @IsOptional()
+    @IsNumber()
+    level?: number;
 }

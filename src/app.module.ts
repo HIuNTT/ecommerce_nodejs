@@ -1,27 +1,50 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { PrismaModule } from './modules/prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ConfigModule } from '@nestjs/config';
 import { UserModule } from './modules/user/user.module';
-import { MailModule } from './modules/mail/mail.module';
+import { MailModule } from './shared/mail/mail.module';
 import { OtpModule } from './modules/otp/otp.module';
 import { CategoryModule } from './modules/category/category.module';
-import { CloudinaryModule } from './modules/cloudinary/cloudinary.module';
-import { CloudinaryProvider } from './modules/cloudinary/cloudinary.provider';
+import { UploadModule } from './modules/upload/upload.module';
+import { SharedModule } from './shared/shared.module';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { TimeoutInterceptor } from './interceptors/timeout.interceptor';
+import { TransformInterceptor } from './interceptors/transform.interceptor';
+import { seconds, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AllExceptionsFilter } from './filters/any-exception.filter';
+import { ItemModule } from './modules/item/item.module';
 
 @Module({
     imports: [
-        AuthModule,
         ConfigModule.forRoot({
             isGlobal: true,
         }),
-        PrismaModule,
+        ThrottlerModule.forRootAsync({
+            useFactory: () => ({
+                errorMessage: 'Hoạt động hiện tại quá thường xuyên, vui lòng thử lại sau!',
+                throttlers: [
+                    {
+                        ttl: seconds(10),
+                        limit: 7,
+                    },
+                ],
+            }),
+        }),
+        AuthModule,
         UserModule,
         MailModule,
         OtpModule,
         CategoryModule,
-        CloudinaryModule,
+        UploadModule,
+        SharedModule,
+        ItemModule,
     ],
-    providers: [CloudinaryProvider],
+    providers: [
+        { provide: APP_FILTER, useClass: AllExceptionsFilter },
+
+        { provide: APP_INTERCEPTOR, useFactory: () => new TimeoutInterceptor(20 * 1000) },
+        { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+        { provide: APP_GUARD, useClass: ThrottlerGuard },
+    ],
 })
 export class AppModule {}

@@ -1,6 +1,6 @@
 import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
 import { errorResponse, successResponse } from '../../helpers/response.helper';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '../../shared/prisma/prisma.service';
 import { BodyEmail } from '../otp/dto/verify-otp.dto';
 
 @Injectable()

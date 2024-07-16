@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { PrismaService } from '~/shared/prisma/prisma.service';
 import { RegisterDTO } from './dto';
 import { compare, hash } from '../../helpers/encryption.helper';
 import { IPayloadToken, Tokens } from './interfaces';

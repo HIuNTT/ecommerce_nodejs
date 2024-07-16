@@ -11,7 +11,11 @@ export class RolesGuard implements CanActivate {
         // sẽ lấy ra @RolesGuard sẽ thực hiện việc lấy ra danh sách role ở trình trang trí @Roles('...')
         const roles: string[] = this.reflector.getAllAndOverride(ROLES, [context.getHandler(), context.getClass()]);
 
+        if (!roles.length || !roles) {
+            return true; // nếu không có role nào đã truyền vào, trả về true
+        }
+
         const request = context.switchToHttp().getRequest();
-        return roles.some((role) => role.includes(request.user.role as unknown as string));
+        return roles.some((role) => request.user.role?.includes(role));
     }
 }

@@ -5,7 +5,8 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["omitApi", "fullTextSearch"]
 }
 
 datasource db {
@@ -16,122 +17,243 @@ datasource db {
 enum Role {
   USER
   ADMIN
-  SUPERUSER
+  MANAGER
+}
+
+enum EPaymentMethod {
+  CREDIT_CARD
+  CASH
+  DEBIT_CARD
+  E_WALLET
+}
+
+enum EFlashSaleStatus {
+  UPCOMING
+  ONGOING
+  ENDED
+}
+
+enum EOrderStatus {
+  PENDING // đang chờ xử lý , chưa được xác nhận
+  CONFIRMED // đã xác nhận
+  PROCESSING // đang xử lý
+  SHIPPED // đã gửi
+  DELIVERED // đã giao hàng
+  RETURNED // đã trả hàng
+  REFUNDED // đã hoàn tiền
+  ON_HOLD // tạm giữ
+  FAILED // thất bại
 }
 
 model User {
-  id              String    @id @default(dbgenerated("nanoid(6)"))
-  username        String    @unique @db.VarChar(255)
-  fullname        String    @db.VarChar(255)
-  avatarUrl       String?   @db.VarChar(255)
-  email           String?   @unique @db.VarChar(255)
-  phone           String?   @unique @db.VarChar(255)
-  password        String    @db.VarChar(255)
-  role            Role      @default(USER)
-  refreshToken    String?   @db.Text
-  isVerifiedEmail Boolean   @default(false)
-  isVerifiedPhone Boolean   @default(false)
-  isActived       Boolean   @default(true)
+  id              String        @id @default(cuid())
+  username        String        @unique @db.VarChar(255)
+  fullname        String        @db.VarChar(255)
+  avatarUrl       String?       @db.VarChar(255)
+  email           String?       @unique @db.VarChar(255)
+  phone           String?       @unique @db.VarChar(255)
+  password        String        @db.VarChar(255)
+  role            Role          @default(USER)
+  refreshToken    String?       @db.Text
+  isVerifiedEmail Boolean       @default(false)
+  isVerifiedPhone Boolean       @default(false)
+  isActived       Boolean       @default(true)
   addresses       Address[]
   otps            Otp[]
-
-  createdAt DateTime @default(now()) @db.Timestamptz(0)
-  updatedAt DateTime @updatedAt @db.Timestamptz(0)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(0)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(0)
+  vouchers        VoucherUsed[]
+  orders          Order[]
 
   @@map("users")
 }
 
 model Address {
-  id       String @id @default(cuid())
-  province String @db.VarChar(255) // Tỉnh/Thành phố
-  district String @db.VarChar(255) // Quận/Huyện
-  commune  String @db.VarChar(255) // Phường/Xã
-  noHouse  String @db.VarChar(255) // Số nhà
-  user     User   @relation(fields: [userId], references: [id])
-  userId   String
-
+  id        String   @id @default(cuid())
+  fullname  String // Họ và tên
+  phone     String // Số điện thoại
+  province  String // Tỉnh/Thành phố
+  district  String // Quận/Huyện
+  commune   String // Phường/Xã
+  address   String // Địa chỉ cụ thể: số nhà, ngõ, thôn,...
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  orders    Order[]
 
   @@map("addresses")
 }
 
 model Otp {
-  id         String @id @default(cuid())
-  code       String @db.VarChar(6)
-  user       User   @relation(fields: [userId], references: [id])
+  id         String   @id @default(cuid())
+  code       String   @db.VarChar(6)
+  user       User     @relation(fields: [userId], references: [id])
   userId     String
-  verifyType String @db.VarChar(255)
-
-  createdAt DateTime @default(now())
+  verifyType String   @db.VarChar(255)
+  createdAt  DateTime @default(now())
 
   @@map("otps")
 }
 
 model Category {
-  id          String     @id @default(cuid())
+  id          Int               @id @default(autoincrement())
   name        String
-  slug        String     @unique
-  parentCatId String?
+  slug        String            @unique
+  parentCatId Int?
   imageUrl    String?
-  level       Int        @default(1)
-  isActived   Boolean    @default(true)
-  banners     Banner[]
-  parent      Category?  @relation("ParentCategory", fields: [parentCatId], references: [id])
-  children    Category[] @relation("ParentCategory")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  slot        Int?              @default(0)
+  level       Int               @default(1)
+  isActived   Boolean           @default(true)
+  parent      Category?         @relation("ParentCategory", fields: [parentCatId], references: [id])
+  children    Category[]        @relation("ParentCategory")
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  items       CategoriesItems[]
 
   @@map("categories")
 }
 
-model Banner {
-  id         String    @id @default(cuid())
-  imageUrl   String
-  slot       Int
-  isActived  Boolean   @default(true)
-  category   Category? @relation(fields: [categoryId], references: [id])
-  categoryId String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("banners")
-}
-
 model Item {
-  id           String  @id @default(cuid())
+  id           Int               @id @default(autoincrement())
   name         String
   barcode      String
-  slug         String  @unique
+  slug         String            @unique
   thumbnail    String
   stock        Int
   weight       String
-  importPrice  Decimal @db.Decimal(11, 2)
-  price        Decimal @db.Decimal(11, 2)
-  oldPrice     Decimal @default(0) @db.Decimal(11, 2)
-  isActived    Boolean @default(true)
-  isBestseller Boolean @default(false)
+  importPrice  Decimal           @db.Decimal(11, 2)
+  price        Decimal           @db.Decimal(11, 2)
+  oldPrice     Decimal           @default(0) @db.Decimal(11, 2)
+  isActived    Boolean           @default(true)
+  isBestseller Boolean           @default(false)
   description  String
-  images       Image[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  galleries    Gallery[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  categories   CategoriesItems[]
+  flashSales   FlashSalesItems[]
 
   @@map("items")
 }
 
-model Image {
-  id        String  @id @default(cuid())
+model CategoriesItems {
+  item       Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  itemId     Int
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@id([itemId, categoryId])
+  @@map("categories_items")
+}
+
+model Gallery {
+  id        String   @id @default(cuid())
   imageUrl  String
   slot      Int
-  isActived Boolean @default(true)
-  item      Item    @relation(fields: [itemId], references: [id])
-  itemId    String
-
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  itemId    Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("images")
+  @@map("galleries")
+}
+
+model Voucher {
+  id                 Int           @id @default(autoincrement())
+  text               String
+  minSpend           Decimal       @default(0) @db.Decimal(11, 2) //Chi tiêu tối thiểu
+  discountCap        Decimal       @default(0) @db.Decimal(11, 2) //Giảm tối đa
+  discountPercentage Int           @default(0) //Phần trăm giảm giá
+  discountValue      Decimal       @default(0) @db.Decimal(11, 2) //Giá trị giảm giá
+  usageLimitPerUser  Int           @default(1) //Giới hạn sử dụng trên mỗi user
+  stock              Int //Số lượng còn lại
+  isActived          Boolean       @default(true)
+  startTime          DateTime
+  endTime            DateTime
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  uses               VoucherUsed[]
+  orders             Order[]
+
+  @@map("vouchers")
+}
+
+model VoucherUsed {
+  quantity  Int     @default(1)
+  voucher   Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  voucherId Int
+  user      User    @relation(fields: [userId], references: [id])
+  userId    String
+
+  @@id([voucherId, userId])
+  @@map("vouchers_used")
+}
+
+model Order {
+  id              String         @id @default(cuid())
+  paymentMethod   EPaymentMethod @default(CASH)
+  note            String?
+  shippingName    String // Tên người nhận hàng
+  shippingPhone   String // Số điện thoại người nhận hàng
+  shippingAddress String // Địa chỉ giao hàng, bao gồm: số nhà, ngõ, thôn, xã, huyện, tỉnh
+  voucherPrice    Decimal?       @default(0) @db.Decimal(11, 2)
+  totalPrice      Decimal        @default(0) @db.Decimal(11, 2)
+  voucher         Voucher?       @relation(fields: [voucherId], references: [id])
+  voucherId       Int?
+  user            User           @relation(fields: [userId], references: [id])
+  userId          String
+  orderStatus     OrderStatus    @relation(fields: [orderStatusId], references: [id])
+  orderStatusId   Int
+  isCancelled     Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  Address         Address?       @relation(fields: [addressId], references: [id])
+  addressId       String?
+
+  @@map("orders")
+}
+
+model OrderStatus {
+  id        Int          @id @default(autoincrement())
+  name      EOrderStatus @unique
+  step      Int          @unique
+  orders    Order[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("order_status")
+}
+
+model FlashSale {
+  id        Int               @id @default(autoincrement())
+  name      String            @default("Hot Flash Sale")
+  startTime DateTime
+  endTime   DateTime
+  status    EFlashSaleStatus  @default(UPCOMING)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  items     FlashSalesItems[]
+
+  @@map("flash_sales")
+}
+
+model FlashSalesItems {
+  discountedPrice    Decimal   @db.Decimal(11, 2) // Giá đã giảm
+  discountPercentage Int // Phần trăm khuyến mãi
+  quantity           Int? // Số lượng sản phẩm khuyến mãi
+  orderLimit         Int? // Giới hạn đặt hàng
+  flashSale          FlashSale @relation(fields: [flashSaleId], references: [id])
+  flashSaleId        Int
+  item               Item      @relation(fields: [itemId], references: [id])
+  itemId             Int
+  isActived          Boolean   @default(true)
+  slot               Int
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@id([flashSaleId, itemId])
+  @@map("flash_sales_items")
 }

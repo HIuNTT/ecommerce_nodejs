@@ -1,25 +1,37 @@
 export class successResponse<T> {
     data: T | T[];
-    status: number;
+    statusCode: number;
     message: string;
 
-    constructor(data: T | T[], status: number, message: string) {
-        this.data = data;
-        this.status = status;
+    constructor(data: T | T[], statusCode: number, message: string) {
         this.message = message;
+        this.statusCode = statusCode;
+        this.data = data;
 
         return this;
     }
 }
 
 export class errorResponse {
-    status: number;
     message: string;
+    statusCode: number;
 
-    constructor(status: number, message: string) {
-        this.status = status;
+    constructor(statusCode: number, message: string) {
         this.message = message;
+        this.statusCode = statusCode;
 
         return this;
+    }
+}
+
+export class ResOp<T = any> {
+    data?: T;
+    statusCode: number;
+    message: string;
+
+    constructor(statusCode: number = 200, data: T, message: string = 'Success') {
+        this.statusCode = statusCode;
+        this.message = message;
+        this.data = data;
     }
 }

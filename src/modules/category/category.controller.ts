@@ -1,58 +1,67 @@
-import {
-    BadRequestException,
-    Body,
-    Controller,
-    Delete,
-    Get,
-    HttpCode,
-    HttpStatus,
-    Param,
-    ParseIntPipe,
-    Post,
-    Put,
-    Query,
-    UploadedFile,
-    UseInterceptors,
-} from '@nestjs/common';
-import { CloudinaryService } from '../cloudinary/cloudinary.service';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { Filters, PaginationResult } from '../../interfaces';
-import { Category } from '@prisma/client';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { CategoryService } from './category.service';
-import { CategoryDTO } from './dto';
-import { successResponse } from 'src/helpers/response.helper';
+import { CreateCategoryDTO, UpdateCategoryDTO } from './dto';
+import { Category } from '@prisma/client';
+import { IdParam, Public, Roles } from '~/decorators';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { ROLE } from '~/enums/role.enum';
+import { AccessTokenGuard } from '../auth/guards';
 
 @Controller('category')
+// @UseGuards(AccessTokenGuard)
 export class CategoryController {
     constructor(private readonly categoryService: CategoryService) {}
 
-    @Get()
-    async getAll(@Query() filters: Filters): Promise<PaginationResult<Category>> {
-        return this.categoryService.findAll(filters);
-    }
-
     @Post('create')
-    @UseInterceptors(FileInterceptor('image'))
     @HttpCode(HttpStatus.OK)
-    async createCategory(
-        @UploadedFile() file: Express.Multer.File,
-        @Body() body: CategoryDTO,
-    ): Promise<successResponse<CategoryDTO>> {
-        return await this.categoryService.create(body, file);
+    // @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    // @UseGuards(RolesGuard)
+    async createCategory(@Body() body: CreateCategoryDTO): Promise<Omit<Category, 'updatedAt' | 'isActived'>> {
+        return await this.categoryService.createCategory(body);
     }
 
-    @Put('update/:id')
+    @Put('update')
     @HttpCode(HttpStatus.OK)
-    async updateCategory(
-        @Body() body: CategoryDTO,
-        @Param('id', ParseIntPipe) id: number,
-    ): Promise<successResponse<CategoryDTO>> {
-        return await this.categoryService.update(body, id);
+    // @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    // @UseGuards(RolesGuard)
+    async updateCategory(@Body() body: UpdateCategoryDTO): Promise<Omit<Category, 'isActived'>> {
+        return await this.categoryService.updateCategory(body);
     }
 
     @Delete('delete/:id')
     @HttpCode(HttpStatus.OK)
-    async deleteCategory(@Param() id: number): Promise<successResponse<null>> {
-        return await this.categoryService.detele(id);
+    // @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    // @UseGuards(RolesGuard)
+    async deleteCategory(@IdParam() catId: number): Promise<void> {
+        await this.categoryService.deleteCategory(catId);
+    }
+
+    @Patch('hidden/:id')
+    @HttpCode(HttpStatus.OK)
+    // @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    // @UseGuards(RolesGuard)
+    async hideCategory(@IdParam() catId: number): Promise<void> {
+        await this.categoryService.hideCategory(catId);
+    }
+
+    @Patch('show/:id')
+    @HttpCode(HttpStatus.OK)
+    // @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    // @UseGuards(RolesGuard)
+    async showCategory(@IdParam() catId: number): Promise<void> {
+        await this.categoryService.showCategory(catId);
+    }
+
+    @Get('get-homepage-category-list')
+    @Public()
+    async getHomepageCategoryList() {
+        const data = await this.categoryService.getHomepageCategoryList();
+        return { category_list: data };
+    }
+
+    @Get('get-children-category/:id')
+    @Public()
+    async getChildrenCategory(@IdParam() parentCatId: number) {
+        return await this.categoryService.getChildrenCategory(parentCatId);
     }
 }

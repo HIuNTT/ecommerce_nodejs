@@ -1,8 +1,8 @@
 import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
-import { MailService } from '../mail/mail.service';
+import { MailService } from '../../shared/mail/mail.service';
 import { generate } from 'otp-generator';
 import { OtpInfor } from './interfaces';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { PrismaService } from '~/shared/prisma/prisma.service';
 import { join } from 'path';
 import * as fs from 'fs';
 import { BodyEmail, VerifyEmail, VerifyPhone } from './dto/verify-otp.dto';
@@ -27,7 +27,7 @@ export class OtpService {
         }
 
         const template = 'send-email-otp.hbs';
-        const path = join(__dirname, 'src/templates', template);
+        const path = join(__dirname, 'src/templates', template); //path.join(path1, path2, path3,...) => kết hợp tất cả các tham số là đường dẫn với nhau sau đó chuẩn hóa đường dẫn kết quả tạo ra
         let contentFile = fs.readFileSync(path, 'utf-8');
         contentFile = contentFile.replace('{{otp}}', otp);
 

@@ -1,11 +1,11 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createTransport } from 'nodemailer';
-import Mail, { Options } from 'nodemailer/lib/mailer';
+import { createTransport, Transporter } from 'nodemailer';
+import { Options } from 'nodemailer/lib/mailer';
 
 @Injectable()
 export class MailService {
-    private transporter: Mail;
+    private readonly transporter: Transporter;
 
     constructor(private readonly config: ConfigService) {
         this.transporter = createTransport(

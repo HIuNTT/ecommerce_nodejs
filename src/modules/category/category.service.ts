@@ -1,141 +1,124 @@
-import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { PrismaService } from '~/shared/prisma/prisma.service';
 import { Category } from '@prisma/client';
-import { Filters, PaginationResult } from 'src/interfaces/find-all.interface';
-import { CategoryDTO } from './dto';
-import { successResponse } from 'src/helpers/response.helper';
-import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { CreateCategoryDTO, UpdateCategoryDTO } from './dto';
 
 @Injectable()
 export class CategoryService {
-    constructor(
-        private readonly prisma: PrismaService,
-        private readonly cloudinaryService: CloudinaryService,
-    ) {}
+    constructor(private readonly prisma: PrismaService) {}
 
-    async findAll(filters: Filters): Promise<PaginationResult<Category>> {
-        const itemsPerPage = Number(filters.itemsPerPage) || 10;
-        const page = Number(filters.page) || 1;
-        const search = filters.search || '';
-
-        const skip = page > 1 ? (page - 1) * itemsPerPage : 0;
-        const [categories, total] = await Promise.all([
-            this.prisma.category.findMany({
-                take: itemsPerPage,
-                skip,
-                where: {
-                    OR: [
-                        {
-                            name: { contains: search },
-                        },
-                        {
-                            slug: { contains: search },
-                        },
-                        {
-                            description: { contains: search },
-                        },
-                    ],
-                    AND: [
-                        {
-                            isActived: true,
-                        },
-                    ],
-                },
-                include: {
-                    banners: {
-                        where: {
-                            isActived: true,
-                        },
-                        orderBy: {
-                            createdAt: 'desc',
-                        },
-                        select: {
-                            imageUrl: true,
-                            slug: true,
-                            slot: true,
-                        },
-                    },
-                },
-                orderBy: {
-                    createdAt: 'desc',
-                },
-            }),
-            this.prisma.category.count({
-                where: {
-                    OR: [
-                        {
-                            name: { contains: search },
-                        },
-                        {
-                            slug: { contains: search },
-                        },
-                        {
-                            description: { contains: search },
-                        },
-                    ],
-                    AND: [
-                        {
-                            isActived: true,
-                        },
-                    ],
-                },
-            }),
-        ]);
-
-        return {
-            count: total,
-            total_pages: Math.ceil(total / itemsPerPage),
-            current_page: page,
-            data: categories,
-        };
-    }
-
-    async create(data: CategoryDTO, file: Express.Multer.File): Promise<successResponse<CategoryDTO>> {
-        const imgUrl = await this.cloudinaryService.uploadImage(file).catch(() => {
-            throw new BadRequestException('Invalid file type');
-        });
-
-        data.imageUrl = String(imgUrl.secure_url);
-
+    // Create category
+    async createCategory(body: CreateCategoryDTO): Promise<Omit<Category, 'updatedAt' | 'isActived'>> {
         const category = await this.prisma.category.create({
-            data,
-            select: {
-                name: true,
-                slug: true,
-                description: true,
-                imageUrl: true,
+            data: {
+                ...body,
+                parentCatId: body.parentCatId || null,
+            },
+            omit: {
+                isActived: true,
+                updatedAt: true,
             },
         });
-        return new successResponse<CategoryDTO>(category, HttpStatus.OK, 'Category created successfully');
+
+        if (!category) {
+            throw new BadRequestException('Failed to create category');
+        }
+
+        return category;
     }
 
-    async update(data: CategoryDTO, id: number): Promise<successResponse<CategoryDTO>> {
+    // Update category
+    async updateCategory(body: UpdateCategoryDTO): Promise<Omit<Category, 'isActived'>> {
         const category = await this.prisma.category.update({
             where: {
-                id,
+                id: body.id,
             },
-            data,
-            select: {
-                name: true,
-                slug: true,
-                description: true,
-                imageUrl: true,
+            data: {
+                ...body,
+            },
+        });
+
+        if (!category) {
+            throw new BadRequestException('Failed to update category');
+        }
+
+        return category;
+    }
+
+    async deleteCategory(catId: number) {
+        await this.prisma.category.delete({
+            where: {
+                id: catId,
+            },
+        });
+    }
+
+    async hideCategory(catId: number) {
+        await this.prisma.category.update({
+            where: {
+                id: catId,
+            },
+            data: {
+                isActived: false,
+            },
+        });
+    }
+
+    async showCategory(catId: number) {
+        await this.prisma.category.update({
+            where: {
+                id: catId,
+            },
+            data: {
                 isActived: true,
             },
         });
-        return new successResponse<CategoryDTO>(category, HttpStatus.OK, 'Category created successfully');
     }
 
-    async detele(id: number): Promise<successResponse<null>> {
-        try {
-            await this.prisma.category.delete({
-                where: {
-                    id,
-                },
-            });
-            return new successResponse(null, HttpStatus.OK, 'Category deleted successfully');
-        } catch (error) {
-            throw new BadRequestException(error);
-        }
+    async getHomepageCategoryList(): Promise<Omit<Category, 'isActived' | 'createdAt' | 'updatedAt'>[]> {
+        const categories = await this.prisma.category.findMany({
+            where: {
+                isActived: true,
+                parentCatId: null,
+            },
+            omit: {
+                createdAt: true,
+                updatedAt: true,
+                isActived: true,
+            },
+            include: {
+                children: false,
+            },
+            orderBy: {
+                slot: 'asc',
+            },
+        });
+        return categories.map((category) => ({
+            ...category,
+            children: null,
+        }));
+    }
+
+    // chỉ lấy các category con thôi, không lấy các category cháu
+    async getChildrenCategory(parentCatId: number) {
+        const categories = await this.prisma.category.findMany({
+            where: {
+                isActived: true,
+                parentCatId,
+            },
+            omit: {
+                createdAt: true,
+                updatedAt: true,
+                isActived: true,
+            },
+            include: {
+                children: true,
+            },
+            orderBy: {
+                slot: 'asc',
+            },
+        });
+
+        return categories;
     }
 }
