@@ -54,7 +54,8 @@ export class AuthService {
         }
     }
 
-    async login({ username, reqPassword }: LoginDTO): Promise<Tokens> {
+    async login(bodyReq: LoginDTO): Promise<Tokens> {
+        const { username, reqPassword } = bodyReq;
         const data = await this.prisma.user.findFirst({
             where: {
                 OR: [
@@ -76,6 +77,7 @@ export class AuthService {
         }
 
         const { password, ...user } = data;
+        console.log(password, reqPassword, username);
 
         if (!(await compare(reqPassword, password))) {
             throw new ForbiddenException('Access Denied');

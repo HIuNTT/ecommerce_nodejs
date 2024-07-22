@@ -23,6 +23,7 @@ export class ItemService {
             maxPrice = 999999999,
         } = filters;
         const skip = page > 1 ? (page - 1) * limit : 0;
+        console.log(categoryId);
 
         const searchKey = search ? search.trim().split(/\s+/).join(' & ') : '';
 

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional } from 'class-validator';
+import { IsArray, IsNumber, IsOptional } from 'class-validator';
 
 export class Filters {
     @IsOptional()
@@ -21,7 +21,11 @@ export class Filters {
 
     @IsOptional()
     @Type(() => Number)
-    categoryId?: number[] | number; // lọc theo danh mục con
+    categoryId?: Array<number> | number; // lọc theo danh mục con
+
+    @IsOptional()
+    @IsNumber()
+    flashSaleId?: number;
 
     @IsOptional()
     @IsNumber()

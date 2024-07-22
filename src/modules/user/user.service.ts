@@ -2,6 +2,7 @@ import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
 import { errorResponse, successResponse } from '../../helpers/response.helper';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { BodyEmail } from '../otp/dto/verify-otp.dto';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -57,5 +58,14 @@ export class UserService {
         } else {
             return new successResponse(null, HttpStatus.OK, 'Email available');
         }
+    }
+
+    async findUserById(userId: string): Promise<User | undefined> {
+        return this.prisma.user.findUnique({
+            where: {
+                id: userId,
+                isActived: true,
+            },
+        });
     }
 }

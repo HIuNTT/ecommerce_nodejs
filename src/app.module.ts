@@ -13,6 +13,9 @@ import { TransformInterceptor } from './interceptors/transform.interceptor';
 import { seconds, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AllExceptionsFilter } from './filters/any-exception.filter';
 import { ItemModule } from './modules/item/item.module';
+import { VoucherModule } from './modules/voucher/voucher.module';
+import { FlashSaleModule } from './modules/flash-sale/flash-sale.module';
+import { OrderModule } from './modules/order/order.module';
 
 @Module({
     imports: [
@@ -38,6 +41,9 @@ import { ItemModule } from './modules/item/item.module';
         UploadModule,
         SharedModule,
         ItemModule,
+        VoucherModule,
+        FlashSaleModule,
+        OrderModule,
     ],
     providers: [
         { provide: APP_FILTER, useClass: AllExceptionsFilter },
@@ -46,5 +52,6 @@ import { ItemModule } from './modules/item/item.module';
         { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
         { provide: APP_GUARD, useClass: ThrottlerGuard },
     ],
+    controllers: [],
 })
 export class AppModule {}

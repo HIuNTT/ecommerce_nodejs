@@ -1,0 +1,11 @@
+export enum VOUCHER_STATUS {
+    UPCOMING = 'UPCOMING',
+    ONGOING = 'ONGOING',
+    ENDED = 'ENDED',
+}
+
+export enum FLASHSALE_STATUS {
+    UPCOMING = 'UPCOMING',
+    ONGOING = 'ONGOING',
+    ENDED = 'ENDED',
+}

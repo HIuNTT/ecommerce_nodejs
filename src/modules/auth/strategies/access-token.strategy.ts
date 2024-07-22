@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -26,6 +26,7 @@ export class AccessTokenStrategy extends PassportStrategy(Strategy, 'jwt') {
         const user = await this.prisma.user.findUnique({
             where: {
                 id: payload.sub,
+                isActived: true,
             },
             select: {
                 role: true,
@@ -33,7 +34,7 @@ export class AccessTokenStrategy extends PassportStrategy(Strategy, 'jwt') {
         });
 
         if (!user) {
-            throw new HttpException('Invalid token', HttpStatus.UNAUTHORIZED);
+            throw new UnauthorizedException('Invalid token');
         }
 
         return {

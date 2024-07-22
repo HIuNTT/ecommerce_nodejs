@@ -20,14 +20,13 @@ enum Role {
   MANAGER
 }
 
-enum EPaymentMethod {
-  CREDIT_CARD
-  CASH
-  DEBIT_CARD
-  E_WALLET
+enum EFlashSaleStatus {
+  UPCOMING
+  ONGOING
+  ENDED
 }
 
-enum EFlashSaleStatus {
+enum EVoucherStatus {
   UPCOMING
   ONGOING
   ENDED
@@ -35,13 +34,12 @@ enum EFlashSaleStatus {
 
 enum EOrderStatus {
   PENDING // đang chờ xử lý , chưa được xác nhận
-  CONFIRMED // đã xác nhận
-  PROCESSING // đang xử lý
-  SHIPPED // đã gửi
-  DELIVERED // đã giao hàng
-  RETURNED // đã trả hàng
-  REFUNDED // đã hoàn tiền
-  ON_HOLD // tạm giữ
+  CONFIRMED // đã xác nhận 
+  PREPARING // đang chuẩn bị hàng
+  SHIPPING // đang giao hàng
+  DELIVERED // đã giao hàng 
+  CANCELLED // đã hủy
+  RETURNED_REFUND // đã trả hàng hoặc hoàn tiền
   FAILED // thất bại
 }
 
@@ -80,7 +78,6 @@ model Address {
   userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  orders    Order[]
 
   @@map("addresses")
 }
@@ -133,6 +130,7 @@ model Item {
   updatedAt    DateTime          @updatedAt
   categories   CategoriesItems[]
   flashSales   FlashSalesItems[]
+  orderItems   OrderItem[]
 
   @@map("items")
 }
@@ -162,20 +160,22 @@ model Gallery {
 }
 
 model Voucher {
-  id                 Int           @id @default(autoincrement())
-  text               String
-  minSpend           Decimal       @default(0) @db.Decimal(11, 2) //Chi tiêu tối thiểu
-  discountCap        Decimal       @default(0) @db.Decimal(11, 2) //Giảm tối đa
-  discountPercentage Int           @default(0) //Phần trăm giảm giá
-  discountValue      Decimal       @default(0) @db.Decimal(11, 2) //Giá trị giảm giá
-  usageLimitPerUser  Int           @default(1) //Giới hạn sử dụng trên mỗi user
-  stock              Int //Số lượng còn lại
-  isActived          Boolean       @default(true)
+  id                 Int            @id @default(autoincrement())
+  voucherCode        String
+  name               String // Không hiển thị với người mua
+  minSpend           Decimal        @default(0) @db.Decimal(11, 2) //Chi tiêu tối thiểu
+  discountCap        Decimal?       @db.Decimal(11, 2) //Giảm tối đa , null là không giới hạn
+  discountPercentage Int? //Phần trăm giảm giá
+  discountValue      Decimal?       @db.Decimal(11, 2) //Giá trị giảm giá
+  usageLimitPerUser  Int            @default(1) //Giới hạn sử dụng trên mỗi user, nằm trong khoảng [1, 5]
+  maxCount           Int            @default(1) //Tổng lượt sử dụng tối đa, nằm trong khoảng [1, 200000]
+  usedCount          Int            @default(0) //Số lượng đã dùng
   startTime          DateTime
   endTime            DateTime
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  uses               VoucherUsed[]
+  status             EVoucherStatus @default(UPCOMING)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  users              VoucherUsed[]
   orders             Order[]
 
   @@map("vouchers")
@@ -193,33 +193,44 @@ model VoucherUsed {
 }
 
 model Order {
-  id              String         @id @default(cuid())
-  paymentMethod   EPaymentMethod @default(CASH)
-  note            String?
-  shippingName    String // Tên người nhận hàng
-  shippingPhone   String // Số điện thoại người nhận hàng
-  shippingAddress String // Địa chỉ giao hàng, bao gồm: số nhà, ngõ, thôn, xã, huyện, tỉnh
-  voucherPrice    Decimal?       @default(0) @db.Decimal(11, 2)
-  totalPrice      Decimal        @default(0) @db.Decimal(11, 2)
-  voucher         Voucher?       @relation(fields: [voucherId], references: [id])
-  voucherId       Int?
-  user            User           @relation(fields: [userId], references: [id])
-  userId          String
-  orderStatus     OrderStatus    @relation(fields: [orderStatusId], references: [id])
-  orderStatusId   Int
-  isCancelled     Boolean        @default(false)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  Address         Address?       @relation(fields: [addressId], references: [id])
-  addressId       String?
+  id               String        @id @default(cuid())
+  note             String?
+  recipientName    String // Tên người nhận hàng
+  recipientPhone   String // Số điện thoại người nhận hàng
+  recipientAddress String // Địa chỉ giao hàng, bao gồm: số nhà, ngõ, thôn, xã, huyện, tỉnh
+  voucherPrice     Decimal?      @default(0) @db.Decimal(11, 2)
+  totalPrice       Decimal       @default(0) @db.Decimal(11, 2)
+  voucher          Voucher?      @relation(fields: [voucherId], references: [id])
+  voucherId        Int?
+  user             User          @relation(fields: [userId], references: [id])
+  userId           String
+  orderStatus      OrderStatus   @relation(fields: [orderStatusId], references: [id])
+  orderStatusId    Int
+  paymentMethod    PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  paymentMethodId  Int
+  isCancelled      Boolean       @default(false)
+  items            OrderItem[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@map("orders")
+}
+
+model OrderItem {
+  quantity Int     @default(1)
+  price    Decimal @db.Decimal(11, 2)
+  item     Item    @relation(fields: [itemId], references: [id])
+  itemId   Int
+  Order    Order   @relation(fields: [orderId], references: [id])
+  orderId  String
+
+  @@id([itemId, orderId])
+  @@map("order_items")
 }
 
 model OrderStatus {
   id        Int          @id @default(autoincrement())
   name      EOrderStatus @unique
-  step      Int          @unique
   orders    Order[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
@@ -232,6 +243,7 @@ model FlashSale {
   name      String            @default("Hot Flash Sale")
   startTime DateTime
   endTime   DateTime
+  isActived Boolean           @default(true)
   status    EFlashSaleStatus  @default(UPCOMING)
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
@@ -245,15 +257,23 @@ model FlashSalesItems {
   discountPercentage Int // Phần trăm khuyến mãi
   quantity           Int? // Số lượng sản phẩm khuyến mãi
   orderLimit         Int? // Giới hạn đặt hàng
-  flashSale          FlashSale @relation(fields: [flashSaleId], references: [id])
+  sold               Int       @default(0) // Số lượng sản phẩm đã bán
+  flashSale          FlashSale @relation(fields: [flashSaleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   flashSaleId        Int
   item               Item      @relation(fields: [itemId], references: [id])
   itemId             Int
-  isActived          Boolean   @default(true)
   slot               Int
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
   @@id([flashSaleId, itemId])
   @@map("flash_sales_items")
+}
+
+model PaymentMethod {
+  id     Int     @id @default(autoincrement())
+  name   String
+  orders Order[]
+
+  @@map("payment_methods")
 }
