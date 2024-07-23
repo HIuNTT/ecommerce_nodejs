@@ -8,46 +8,45 @@ import { ROLE } from '~/enums/role.enum';
 import { AccessTokenGuard } from '../auth/guards';
 
 @Controller('category')
-// @UseGuards(AccessTokenGuard)
 export class CategoryController {
     constructor(private readonly categoryService: CategoryService) {}
 
     @Post('create')
     @HttpCode(HttpStatus.OK)
-    // @Roles(ROLE.ADMIN, ROLE.MANAGER)
-    // @UseGuards(RolesGuard)
+    @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    @UseGuards(AccessTokenGuard, RolesGuard)
     async createCategory(@Body() body: CreateCategoryDTO): Promise<Omit<Category, 'updatedAt' | 'isActived'>> {
         return await this.categoryService.createCategory(body);
     }
 
     @Put('update')
     @HttpCode(HttpStatus.OK)
-    // @Roles(ROLE.ADMIN, ROLE.MANAGER)
-    // @UseGuards(RolesGuard)
+    @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    @UseGuards(AccessTokenGuard, RolesGuard)
     async updateCategory(@Body() body: UpdateCategoryDTO): Promise<Omit<Category, 'isActived'>> {
         return await this.categoryService.updateCategory(body);
     }
 
     @Delete('delete/:id')
     @HttpCode(HttpStatus.OK)
-    // @Roles(ROLE.ADMIN, ROLE.MANAGER)
-    // @UseGuards(RolesGuard)
+    @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    @UseGuards(AccessTokenGuard, RolesGuard)
     async deleteCategory(@IdParam() catId: number): Promise<void> {
         await this.categoryService.deleteCategory(catId);
     }
 
     @Patch('hidden/:id')
     @HttpCode(HttpStatus.OK)
-    // @Roles(ROLE.ADMIN, ROLE.MANAGER)
-    // @UseGuards(RolesGuard)
+    @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    @UseGuards(AccessTokenGuard, RolesGuard)
     async hideCategory(@IdParam() catId: number): Promise<void> {
         await this.categoryService.hideCategory(catId);
     }
 
     @Patch('show/:id')
     @HttpCode(HttpStatus.OK)
-    // @Roles(ROLE.ADMIN, ROLE.MANAGER)
-    // @UseGuards(RolesGuard)
+    @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    @UseGuards(AccessTokenGuard, RolesGuard)
     async showCategory(@IdParam() catId: number): Promise<void> {
         await this.categoryService.showCategory(catId);
     }

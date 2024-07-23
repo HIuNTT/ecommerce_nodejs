@@ -6,24 +6,22 @@ import { AccessTokenGuard } from '../auth/guards';
 import { Filters } from '~/interfaces';
 
 @Controller('order')
+@UseGuards(AccessTokenGuard)
 export class OrderController {
     constructor(private readonly orderService: OrderService) {}
 
     @Post('create')
     @HttpCode(HttpStatus.OK)
-    @UseGuards(AccessTokenGuard)
     async create(@Body() body: CreateOrderDTO, @UserId() userId: string) {
         return await this.orderService.createOrder(body, userId);
     }
 
     @Get('get-order-detail')
-    @UseGuards(AccessTokenGuard)
     async getDetailById(@UserId() userId: string, @Query('orderId') orderId: string) {
         return await this.orderService.getOrderDetailById(orderId, userId);
     }
 
     @Get('get-order-list')
-    @UseGuards(AccessTokenGuard)
     async getAll(@UserId() userId: string, @Query() filter: Filters) {
         return await this.orderService.getListOrdersUser(userId, filter);
     }

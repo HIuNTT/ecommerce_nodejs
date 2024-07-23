@@ -1,10 +1,13 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ItemService } from './item.service';
-import { CreateItemDTO, ItemPagination } from './dto/item.dto';
+import { CreateItemDTO } from './dto/item.dto';
 import { Item } from '@prisma/client';
-import { IdParam } from '~/decorators';
+import { IdParam, Roles } from '~/decorators';
 import { UpdateItemDTO } from './dto/update-item.dto';
 import { Filters } from '~/interfaces';
+import { AccessTokenGuard } from '../auth/guards';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { ROLE } from '~/enums/role.enum';
 
 @Controller('item')
 export class ItemController {
@@ -27,17 +30,23 @@ export class ItemController {
 
     @Post('create')
     @HttpCode(HttpStatus.OK)
+    @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    @UseGuards(AccessTokenGuard, RolesGuard)
     async create(@Body() body: CreateItemDTO): Promise<Omit<Item, 'isBestseller' | 'updatedAt'>> {
         return await this.itemService.createItem(body);
     }
 
     @Put('update')
+    @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    @UseGuards(AccessTokenGuard, RolesGuard)
     async update(@Body() body: UpdateItemDTO): Promise<Omit<Item, 'isBestseller' | 'createdAt'>> {
         return await this.itemService.updateItem(body);
     }
 
     @Delete('delete/:id')
     @HttpCode(HttpStatus.OK)
+    @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    @UseGuards(AccessTokenGuard, RolesGuard)
     async delete(@IdParam() itemId: number): Promise<void> {
         await this.itemService.deleteItem(itemId);
     }
