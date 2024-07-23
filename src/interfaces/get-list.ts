@@ -1,10 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsNumber, IsOptional } from 'class-validator';
+import { IsNumber, IsOptional } from 'class-validator';
 
 export class Filters {
     @IsOptional()
     @IsNumber()
     limit?: number;
+
+    @IsOptional()
+    @IsNumber()
+    offset?: number;
 
     @IsOptional()
     @IsNumber()
@@ -34,6 +38,10 @@ export class Filters {
     @IsOptional()
     @IsNumber()
     maxPrice?: number; // lọc theo giá cả
+
+    @IsOptional()
+    @IsNumber()
+    type?: number; // Mã status của đơn hàng
 }
 
 export class BasePagination {
@@ -41,4 +49,8 @@ export class BasePagination {
     totalPage: number;
     pageIndex: number;
     pageSize: number;
+}
+
+export class BaseInfiniteScroll {
+    nextOffset: number;
 }

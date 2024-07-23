@@ -33,14 +33,14 @@ enum EVoucherStatus {
 }
 
 enum EOrderStatus {
-  PENDING // đang chờ xử lý , chưa được xác nhận
-  CONFIRMED // đã xác nhận 
-  PREPARING // đang chuẩn bị hàng
-  SHIPPING // đang giao hàng
-  DELIVERED // đã giao hàng 
-  CANCELLED // đã hủy
-  RETURNED_REFUND // đã trả hàng hoặc hoàn tiền
-  FAILED // thất bại
+  PENDING // đang chờ xử lý , chưa được xác nhận -> id 1
+  CONFIRMED // đã xác nhận -> id 2
+  PREPARING // đang chuẩn bị hàng -> id 3
+  SHIPPING // đang giao hàng -> id 4
+  DELIVERED // đã giao hàng  -> id 5
+  CANCELLED // đã hủy -id 6
+  RETURNED_REFUND // đã trả hàng hoặc hoàn tiền -> id 7
+  FAILED // thất bại -> id 8
 }
 
 model User {
@@ -175,7 +175,7 @@ model Voucher {
   status             EVoucherStatus @default(UPCOMING)
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
-  users              VoucherUsed[]
+  vouchersUser       VoucherUsed[]
   orders             Order[]
 
   @@map("vouchers")
@@ -206,9 +206,8 @@ model Order {
   userId           String
   orderStatus      OrderStatus   @relation(fields: [orderStatusId], references: [id])
   orderStatusId    Int
-  paymentMethod    PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  paymentMethod    PaymentMethod @relation(fields: [paymentMethodId], references: [id], onDelete: SetDefault, onUpdate: Cascade)
   paymentMethodId  Int
-  isCancelled      Boolean       @default(false)
   items            OrderItem[]
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
@@ -221,7 +220,7 @@ model OrderItem {
   price    Decimal @db.Decimal(11, 2)
   item     Item    @relation(fields: [itemId], references: [id])
   itemId   Int
-  Order    Order   @relation(fields: [orderId], references: [id])
+  Order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   orderId  String
 
   @@id([itemId, orderId])
@@ -260,7 +259,7 @@ model FlashSalesItems {
   sold               Int       @default(0) // Số lượng sản phẩm đã bán
   flashSale          FlashSale @relation(fields: [flashSaleId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   flashSaleId        Int
-  item               Item      @relation(fields: [itemId], references: [id])
+  item               Item      @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   itemId             Int
   slot               Int
   createdAt          DateTime  @default(now())

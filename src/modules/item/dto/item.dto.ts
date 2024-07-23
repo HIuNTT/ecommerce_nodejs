@@ -2,6 +2,7 @@ import { IsArray, IsNotEmpty, IsNumber, IsOptional } from 'class-validator';
 import { CreateGalleryDTO } from './gallery.dto';
 import { Type } from 'class-transformer';
 import { BasePagination } from '~/interfaces';
+import { Decimal } from '@prisma/client/runtime/library';
 
 export class CatConnectedDTO {
     @IsNotEmpty()
@@ -59,4 +60,11 @@ export class CreateItemDTO {
 
 export interface ItemPagination<T, K extends keyof T> extends BasePagination {
     items: Omit<T, K>;
+}
+
+export class GetItemOfOrder {
+    id: number;
+    name: string;
+    thumbnail: string;
+    oldPrice: number | Decimal;
 }

@@ -20,9 +20,6 @@ export class TransformInterceptor implements NestInterceptor {
         const request = http.getRequest<Request>();
         const response = http.getResponse<Response>();
 
-        console.log('Request URL:', request.url);
-        console.log('qs:', qs);
-
         // Xử lý các tham số Query, chuyển các tham số mảng thành mảng: ?a[]=1&a[]=2 => { a: [1, 2] } => kết quả cuối cùng là 1 object chứa các tham số query
         request.query = qs.parse(request.url.split('?').at(1));
 

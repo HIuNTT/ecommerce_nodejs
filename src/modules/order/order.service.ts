@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '~/shared/prisma/prisma.service';
-import { CreateOrderDTO } from './dto/order.dto';
+import { CancelOrderDTO, CreateOrderDTO, OrderInfiniteScroll } from './dto/order.dto';
 import dayjs from 'dayjs';
-import { OrderItem } from '@prisma/client';
+import { Order, OrderItem } from '@prisma/client';
+import { Filters } from '~/interfaces';
 
 @Injectable()
 export class OrderService {
@@ -163,7 +164,7 @@ export class OrderService {
                             id: userId,
                         },
                     },
-                    voucher: {
+                    voucher: voucher && {
                         connect: {
                             id: voucher.id,
                         },
@@ -194,12 +195,39 @@ export class OrderService {
                         usedCount: {
                             increment: 1,
                         },
+                        vouchersUser: {
+                            upsert: {
+                                create: {
+                                    quantity: 1,
+                                    user: {
+                                        connect: {
+                                            id: userId,
+                                        },
+                                    },
+                                },
+                                update: {
+                                    quantity: {
+                                        increment: 1,
+                                    },
+                                },
+                                where: {
+                                    voucherId_userId: {
+                                        userId,
+                                        voucherId: voucher.id,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    include: {
+                        vouchersUser: true,
                     },
                 });
 
-                // sửa tiếp, cập nhật voucherUsed , quantity
-
-                console.log(voucherData);
+                // Kiểm tra xem user đã dùng voucher quá số lần cho phép chưa
+                if (voucherData.vouchersUser[0].quantity > voucherData.usageLimitPerUser) {
+                    throw new BadRequestException('Voucher has reached its usage limit per user');
+                }
 
                 // Kiểm tra xem đủ voucher để dùng không?
                 if (voucherData.usedCount > voucherData.maxCount) {
@@ -263,6 +291,7 @@ export class OrderService {
                     },
                 });
 
+                // Kiểm tra xem sản phẩm đã hết hàng chưa
                 if (updateItem.stock < 0) {
                     throw new BadRequestException(`Item ${updateItem.name} is out of stock`);
                 }
@@ -270,6 +299,117 @@ export class OrderService {
 
             await Promise.all(updateItems);
             return order;
+        });
+    }
+
+    // Người dùng xem chi tiết đơn hàng
+    async getOrderDetailById(orderId: string, userId: string) {
+        return await this.prisma.order.findUnique({
+            where: {
+                id: orderId,
+                user: {
+                    id: userId,
+                },
+            },
+            include: {
+                items: {
+                    select: {
+                        item: {
+                            select: {
+                                id: true,
+                                name: true,
+                                thumbnail: true,
+                                oldPrice: true,
+                            },
+                        },
+                        quantity: true,
+                        price: true,
+                    },
+                },
+                paymentMethod: true,
+                orderStatus: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+            },
+            omit: {
+                voucherId: true,
+                orderStatusId: true,
+                paymentMethodId: true,
+            },
+        });
+    }
+
+    // Lấy ra danh sách đơn hàng của user, có lọc status đơn hàng qua param TYPE (mã status)
+    async getListOrdersUser(userId: string, filter: Filters): Promise<OrderInfiniteScroll> {
+        const { limit = 5, offset = 0, type = 0 } = filter; // Nếu không có type thì mặc định lấy ra tất cả đơn hàng mà không lọc status
+        const orders = await this.prisma.order.findMany({
+            where: {
+                userId,
+                orderStatusId: type ? { equals: type } : {},
+            },
+            skip: offset,
+            take: limit,
+            orderBy: {
+                updatedAt: 'desc',
+            },
+            select: {
+                id: true,
+                totalPrice: true,
+                orderStatus: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+                items: {
+                    select: {
+                        quantity: true,
+                        price: true,
+                        item: {
+                            select: {
+                                id: true,
+                                name: true,
+                                thumbnail: true,
+                                oldPrice: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        return {
+            ordersList: orders || null,
+            nextOffset: orders ? limit + offset : -1,
+        };
+    }
+
+    async cancelOrder(userId: string, { orderId }: CancelOrderDTO): Promise<void> {
+        const order = await this.findOrderById(orderId);
+        if (!order) {
+            throw new NotFoundException('Order not found');
+        }
+        await this.prisma.order.update({
+            where: {
+                id: orderId,
+                userId,
+                orderStatusId: {
+                    in: [1, 2, 3],
+                },
+            },
+            data: {
+                orderStatusId: 6, // 6 là status CANCELLED
+            },
+        });
+    }
+
+    async findOrderById(orderId: string): Promise<Order | undefined> {
+        return this.prisma.order.findUnique({
+            where: {
+                id: orderId,
+            },
         });
     }
 }
