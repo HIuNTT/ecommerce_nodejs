@@ -412,4 +412,12 @@ export class OrderService {
             },
         });
     }
+
+    async findOrderByItemId(itemId: number): Promise<OrderItem | undefined> {
+        return this.prisma.orderItem.findFirst({
+            where: {
+                itemId,
+            },
+        });
+    }
 }

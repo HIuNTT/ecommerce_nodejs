@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { CreateItemDTO } from './dto/item.dto';
 import slugify from 'slugify';
@@ -6,10 +6,14 @@ import { Item } from '@prisma/client';
 import { UpdateItemDTO } from './dto/update-item.dto';
 import { Filters } from '~/interfaces';
 import { isArray, isNumber } from 'lodash';
+import { OrderService } from '../order/order.service';
 
 @Injectable()
 export class ItemService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly orderService: OrderService,
+    ) {}
 
     async getListItem(filters: Filters) {
         const {
@@ -293,8 +297,13 @@ export class ItemService {
             });
     }
 
-    async deleteItem(itemId: number) {
-        return await this.prisma.item.delete({
+    async deleteItem(itemId: number): Promise<void> {
+        const itemInOrder = await this.orderService.findOrderByItemId(itemId);
+        if (itemInOrder) {
+            throw new BadRequestException('Item is in order, cannot delete');
+        }
+
+        await this.prisma.item.delete({
             where: {
                 id: itemId,
             },
