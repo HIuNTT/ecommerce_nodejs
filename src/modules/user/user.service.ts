@@ -68,4 +68,15 @@ export class UserService {
             },
         });
     }
+
+    async findAllUsersVerifiedEmail() {
+        return this.prisma.user.findMany({
+            where: {
+                isActived: true,
+                role: 'USER',
+                email: { not: null },
+                isVerifiedEmail: true,
+            },
+        });
+    }
 }

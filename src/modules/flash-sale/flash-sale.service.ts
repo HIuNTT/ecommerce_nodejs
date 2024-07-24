@@ -182,4 +182,22 @@ export class FlashSaleService {
             },
         });
     }
+
+    async findUpcomingFlashSale(time: number) {
+        console.log(dayjs().add(time, 'minutes').toISOString());
+        return this.prisma.flashSale.findFirst({
+            where: {
+                startTime: { equals: dayjs().add(time, 'minutes').second(0).millisecond(0).toDate() },
+                isActived: true,
+            },
+            orderBy: {
+                startTime: 'asc',
+            },
+            select: {
+                id: true,
+                startTime: true,
+                endTime: true,
+            },
+        });
+    }
 }
