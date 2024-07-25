@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDTO } from './dto';
+import { ForgotPasswordDTO, RegisterDTO } from './dto';
 import { Tokens } from './interfaces';
 import { LoginDTO } from './dto/login.dto';
 import { Request } from 'express';
@@ -36,5 +36,12 @@ export class AuthController {
     async refreshToken(@Req() req: Request) {
         const user = req.user;
         return this.authService.refreshToken(user['sub'], user['refreshToken']);
+    }
+
+    @Post('send-reset-email')
+    @HttpCode(HttpStatus.OK)
+    async sendMail(@Body() body: ForgotPasswordDTO) {
+        console.log(body);
+        return await this.authService.sendEmail(body);
     }
 }

@@ -4,25 +4,37 @@ import { generate } from 'otp-generator';
 import { OtpInfor } from './interfaces';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { join } from 'path';
-import * as fs from 'fs';
+import fs from 'fs';
 import { BodyEmail, VerifyEmail, VerifyPhone } from './dto/verify-otp.dto';
 import { successResponse } from 'src/helpers/response.helper';
+import dayjs from 'dayjs';
+import { ConfigService } from '@nestjs/config';
+import { UserService } from '../user/user.service';
+import { isEmpty } from 'lodash';
 
 @Injectable()
 export class OtpService {
     constructor(
         private readonly mailService: MailService,
         private readonly prisma: PrismaService,
+        private readonly config: ConfigService,
+        private readonly userService: UserService,
     ) {}
 
-    async sendEmailOtp(payload: BodyEmail, userId: string) {
-        const otp = (await this.checkAvailable(payload.email, userId)) || this.generateOtp(6);
+    async sendEmailOtp(payload: BodyEmail) {
+        // Kiểm tra xem email đã tồn tại chưa
+        const user = await this.userService.findUserByEmail(payload.email);
 
-        if (!(await this.checkAvailable(payload.email, userId))) {
+        if (user) {
+            throw new BadRequestException('Email existed');
+        }
+
+        const otp = (await this.findOneOtpAvailable(payload.email)) || this.generateOtp(6);
+
+        if (!(await this.findOneOtpAvailable(payload.email))) {
             await this.setOtp({
                 verifyType: payload.email,
                 code: otp,
-                userId,
             });
         }
 
@@ -45,11 +57,10 @@ export class OtpService {
         // Kiểm tra xem mã OTP hết hạn chưa, và có khớp với OTP client gửi lên không?
         const data = await this.prisma.otp.findFirst({
             where: {
-                userId,
                 code: payload.code,
                 verifyType: verifyData,
-                createdAt: {
-                    gte: new Date(Date.now() - 15 * 60 * 1000),
+                expiredAt: {
+                    gte: dayjs().toISOString(),
                 },
             },
         });
@@ -57,40 +68,34 @@ export class OtpService {
         if (!data) {
             throw new BadRequestException('The OTP code is incorrect or has expired');
         } else {
-            await this.prisma.otp.delete({
-                where: {
-                    id: data.id,
-                },
-            });
-            await this.prisma.user.update({
-                where: {
-                    id: userId,
-                },
-                data: payload instanceof VerifyEmail ? { isVerifiedEmail: true } : { isVerifiedPhone: true },
-            });
-
-            return new successResponse(null, HttpStatus.OK, 'Verify successfuly');
+            await this.prisma.$transaction([
+                this.prisma.otp.delete({
+                    where: {
+                        id: data.id,
+                    },
+                }),
+                this.prisma.user.update({
+                    where: {
+                        id: userId,
+                    },
+                    data:
+                        payload instanceof VerifyEmail
+                            ? { isVerifiedEmail: true, email: payload.email }
+                            : { isVerifiedPhone: true, phone: payload.phone },
+                }),
+            ]);
         }
     }
 
     async setOtp(data: OtpInfor) {
-        try {
-            const { userId, ...otherData } = data;
-
-            // Save to database
-            await this.prisma.otp.create({
-                data: {
-                    ...otherData,
-                    user: {
-                        connect: {
-                            id: userId,
-                        },
-                    },
-                },
-            });
-        } catch (error) {
-            throw error;
-        }
+        // Lưu otp vào database
+        const expiredAt = dayjs().add(15, 'minutes').toISOString();
+        await this.prisma.otp.create({
+            data: {
+                ...data,
+                expiredAt,
+            },
+        });
     }
 
     // Sinh otp với độ dài length
@@ -104,13 +109,12 @@ export class OtpService {
     }
 
     // Kiểm tra xem email hoặc phone đã được lưu ở Otps chưa (đã gửi otp đến email or phone hay chưa)
-    async checkAvailable(verifyData: string, userId: string) {
+    async findOneOtpAvailable(verifyData: string): Promise<string | null> {
         const data = await this.prisma.otp.findFirst({
             where: {
                 verifyType: verifyData,
-                userId,
-                createdAt: {
-                    gte: new Date(Date.now() - 15 * 60 * 1000),
+                expiredAt: {
+                    gte: dayjs().toISOString(),
                 },
             },
         });

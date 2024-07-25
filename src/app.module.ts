@@ -52,6 +52,5 @@ import { OrderModule } from './modules/order/order.module';
         { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
         { provide: APP_GUARD, useClass: ThrottlerGuard },
     ],
-    controllers: [],
 })
 export class AppModule {}

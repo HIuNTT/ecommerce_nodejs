@@ -57,7 +57,6 @@ model User {
   isVerifiedPhone Boolean       @default(false)
   isActived       Boolean       @default(true)
   addresses       Address[]
-  otps            Otp[]
   createdAt       DateTime      @default(now()) @db.Timestamptz(0)
   updatedAt       DateTime      @updatedAt @db.Timestamptz(0)
   vouchers        VoucherUsed[]
@@ -85,10 +84,9 @@ model Address {
 model Otp {
   id         String   @id @default(cuid())
   code       String   @db.VarChar(6)
-  user       User     @relation(fields: [userId], references: [id])
-  userId     String
-  verifyType String   @db.VarChar(255)
+  verifyType String // Lưu email or phone của người dùng
   createdAt  DateTime @default(now())
+  expiredAt  DateTime
 
   @@map("otps")
 }
@@ -275,4 +273,14 @@ model PaymentMethod {
   orders Order[]
 
   @@map("payment_methods")
+}
+
+model Token {
+  id        String   @id @default(cuid())
+  token     String
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tokens")
 }

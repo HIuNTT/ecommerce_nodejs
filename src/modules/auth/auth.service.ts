@@ -1,11 +1,16 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '~/shared/prisma/prisma.service';
-import { RegisterDTO } from './dto';
+import { ForgotPasswordDTO, RegisterDTO } from './dto';
 import { compare, hash } from '../../helpers/encryption.helper';
 import { IPayloadToken, Tokens } from './interfaces';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { LoginDTO } from './dto/login.dto';
+import { UserService } from '../user/user.service';
+import crypto from 'crypto';
+import { MailService } from '~/shared/mail/mail.service';
+import { join } from 'path';
+import fs from 'fs';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +18,8 @@ export class AuthService {
         private prisma: PrismaService,
         private jwtService: JwtService,
         private config: ConfigService,
+        private readonly userService: UserService,
+        private readonly mailService: MailService,
     ) {}
 
     async register(bodyReq: RegisterDTO): Promise<Tokens> {
@@ -171,5 +178,43 @@ export class AuthService {
             access_token: at,
             refresh_token: rt,
         };
+    }
+
+    async sendEmail(body: ForgotPasswordDTO) {
+        const { email } = body;
+        const user = await this.userService.findUserByVerifiedEmail(email);
+        if (!user) {
+            throw new BadRequestException('User not found');
+        }
+
+        const token = crypto.randomBytes(32).toString('hex');
+        const link = `${this.config.get('BASE_URL_CLIENT')}/forgot-password/?token=${token}&email=${email}`;
+
+        await this.prisma.token.upsert({
+            where: {
+                email,
+            },
+            update: {
+                token,
+            },
+            create: {
+                email,
+                token,
+            },
+        });
+
+        const template = 'send-email-forgot-password.hbs';
+        const path = join(__dirname, 'src/templates', template);
+        let contentFile = fs.readFileSync(path, 'utf-8');
+        contentFile = contentFile.replace('{{link}}', link);
+        contentFile = contentFile.replace('{{link}}', link);
+        contentFile = contentFile.replace('{{link}}', link);
+        contentFile = contentFile.replace('{{name}}', user.fullname);
+
+        return this.mailService.sendMail({
+            to: email,
+            subject: 'Thiết lập lại mật khẩu đăng nhập MyShop',
+            html: contentFile,
+        });
     }
 }

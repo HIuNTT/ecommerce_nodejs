@@ -40,6 +40,10 @@ async function bootstrap() {
     app.enableCors();
     app.setViewEngine('hbs');
     app.setGlobalPrefix('api');
+
+    // Starts listening for shutdown hooks
+    app.enableShutdownHooks();
+
     await app.listen(3000);
 
     if (module.hot) {

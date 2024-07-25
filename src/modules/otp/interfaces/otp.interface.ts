@@ -1,3 +1,3 @@
 import { Otp } from '@prisma/client';
 
-export interface OtpInfor extends Omit<Otp, 'createdAt' | 'id'> {}
+export interface OtpInfor extends Omit<Otp, 'createdAt' | 'id' | 'expiredAt'> {}

@@ -1,9 +1,14 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { INestApplication, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+    extends PrismaClient<Prisma.PrismaClientOptions, 'query' | 'error'>
+    implements OnModuleInit, OnModuleDestroy
+{
+    private readonly logger = new Logger(PrismaService.name);
+
     constructor(config: ConfigService) {
         super({
             datasources: {
@@ -11,34 +16,36 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
                     url: config.get('DATABASE_URL'),
                 },
             },
-        });
-        this.$extends({
-            query: {
-                item: {
-                    async create({ model, args, query }) {
-                        // if (model === 'Item' || model === 'Category') {
-                        if (args.data && args.data.name) {
-                            const slug = args.data.name.toLowerCase().trim().replace(/\s+/g, '-');
-                            args.data.slug = slug;
-                        }
-                        // }
-                        return query(args);
-                    },
-                    // async update({ model, args, query }) {
-                    //     if (model === 'Item' || model === 'Category') {
-                    //         if (args.data && args.data?.name) {
-                    //             const slug = args.data?.name.toLowerCase().trim().replace(/\s+/g, '-');
-                    //             args.data.slug = slug;
-                    //         }
-                    //     }
-                    //     return query(args);
-                    // },
+            log: [
+                {
+                    emit: 'event',
+                    level: 'query',
                 },
-            },
+                {
+                    emit: 'event',
+                    level: 'error',
+                },
+                {
+                    emit: 'stdout',
+                    level: 'info',
+                },
+                {
+                    emit: 'stdout',
+                    level: 'warn',
+                },
+            ],
         });
     }
 
     async onModuleInit() {
+        this.$on('error', (event) => {
+            this.logger.verbose(event.target);
+        });
+        this.$on('query', (event: Prisma.QueryEvent) => {
+            this.logger.verbose('Query: ' + event.query);
+            this.logger.verbose('Duration: ' + event.duration + 'ms');
+            this.logger.verbose('Param: ' + event.params);
+        });
         await this.$connect();
     }
 
