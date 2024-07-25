@@ -5,63 +5,20 @@ import {
     HttpStatus,
     ParseFilePipe,
     Post,
-    UploadedFile,
     UploadedFiles,
     UseInterceptors,
 } from '@nestjs/common';
 import { CloudinaryService } from '../../shared/cloudinary/cloudinary.service';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
-import { CloudinaryResponse } from '../../interfaces/cloudinary-response';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { fileValidators } from '../../validators/file.validator';
+import { isEmpty } from 'lodash';
+import { UploadRes } from '~/interfaces';
 
 @Controller('upload')
 export class UploadController {
     constructor(private readonly cloudinaryService: CloudinaryService) {}
 
-    // Tải lên 1 ảnh cho category
-    @Post('category')
-    @UseInterceptors(FileInterceptor('file'))
-    @HttpCode(HttpStatus.OK)
-    async uploadCategoryImage(
-        @UploadedFile(
-            new ParseFilePipe({
-                validators: fileValidators,
-            }),
-        )
-        file: Express.Multer.File,
-    ): Promise<CloudinaryResponse> {
-        if (!file) {
-            throw new BadRequestException('No file uploaded');
-        }
-        return await this.cloudinaryService.uploadImage(file).catch((error) => {
-            console.log(error);
-            throw new BadRequestException(error);
-        });
-    }
-
-    // Tải lên 1 ảnh cho item
-    @Post('item-thumbnail')
-    @UseInterceptors(FileInterceptor('file'))
-    @HttpCode(HttpStatus.OK)
-    async uploadProductImage(
-        @UploadedFile(
-            new ParseFilePipe({
-                validators: fileValidators,
-            }),
-        )
-        file: Express.Multer.File,
-    ): Promise<CloudinaryResponse> {
-        if (!file) {
-            throw new BadRequestException('No file uploaded');
-        }
-        return await this.cloudinaryService.uploadImage(file).catch((error) => {
-            console.log(error);
-            throw new BadRequestException(error);
-        });
-    }
-
-    // Tải lên nhiều ảnh cho item
-    @Post('item-detail-image')
+    @Post('images')
     @UseInterceptors(FilesInterceptor('files'))
     @HttpCode(HttpStatus.OK)
     async uploadProductImages(
@@ -71,13 +28,15 @@ export class UploadController {
             }),
         )
         files: Array<Express.Multer.File>,
-    ): Promise<CloudinaryResponse[]> {
-        if (files.length === 0) {
+    ): Promise<UploadRes[]> {
+        if (isEmpty(files)) {
             throw new BadRequestException('No files uploaded');
         }
-        return await this.cloudinaryService.uploadImages(files).catch((error) => {
-            console.log(error);
-            throw new BadRequestException(error);
-        });
+
+        return await Promise.all(
+            files.map(async (file) => {
+                return await this.cloudinaryService.upload(file);
+            }),
+        );
     }
 }
