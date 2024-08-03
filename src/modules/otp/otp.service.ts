@@ -6,7 +6,6 @@ import { PrismaService } from '~/shared/prisma/prisma.service';
 import { join } from 'path';
 import fs from 'fs';
 import { BodyEmail, VerifyEmail, VerifyPhone } from './dto/verify-otp.dto';
-import { successResponse } from 'src/helpers/response.helper';
 import dayjs from 'dayjs';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../user/user.service';

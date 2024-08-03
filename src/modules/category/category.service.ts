@@ -1,17 +1,20 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '~/shared/prisma/prisma.service';
-import { Category } from '@prisma/client';
-import { CreateCategoryDTO, UpdateCategoryDTO } from './dto';
+import { CategoryQueryDTO, CreateCategoryDTO, GetCategoryDTO, TreeCategory, UpdateCategoryDTO } from './dto';
+import slugify from 'slugify';
+import { createPagination } from '~/helpers/paginate/create-pagination';
+import { Pagination } from '~/helpers/paginate/pagination';
 
 @Injectable()
 export class CategoryService {
     constructor(private readonly prisma: PrismaService) {}
 
     // Create category
-    async createCategory(body: CreateCategoryDTO): Promise<Omit<Category, 'updatedAt' | 'isActived'>> {
+    async createCategory(body: CreateCategoryDTO): Promise<void> {
         const category = await this.prisma.category.create({
             data: {
                 ...body,
+                slug: body.slug || slugify(body.name, { lower: true, strict: true, locale: 'vi' }),
                 parentCatId: body.parentCatId || null,
             },
             omit: {
@@ -23,12 +26,10 @@ export class CategoryService {
         if (!category) {
             throw new BadRequestException('Failed to create category');
         }
-
-        return category;
     }
 
     // Update category
-    async updateCategory(body: UpdateCategoryDTO): Promise<Omit<Category, 'isActived'>> {
+    async updateCategory(body: UpdateCategoryDTO): Promise<void> {
         const category = await this.prisma.category.update({
             where: {
                 id: body.id,
@@ -41,8 +42,6 @@ export class CategoryService {
         if (!category) {
             throw new BadRequestException('Failed to update category');
         }
-
-        return category;
     }
 
     async deleteCategory(catId: number) {
@@ -53,66 +52,65 @@ export class CategoryService {
         });
     }
 
-    async hideCategory(catId: number) {
-        await this.prisma.category.update({
-            where: {
-                id: catId,
-            },
-            data: {
-                isActived: false,
-            },
+    async getCategoryList(filters: CategoryQueryDTO): Promise<Pagination<GetCategoryDTO>> {
+        const { limit, page, order, sortBy, ...query } = filters;
+
+        const searchKey = query.search ? query.search.trim().split(/\s+/).join(' & ') : '';
+
+        const [categories, totalCount] = await this.prisma.$transaction([
+            this.prisma.category.findMany({
+                take: limit,
+                skip: filters.skip,
+                where: {
+                    ...(searchKey && {
+                        OR: [
+                            { name: { search: searchKey, mode: 'insensitive' } },
+                            { slug: { search: searchKey, mode: 'insensitive' } },
+                        ],
+                    }),
+                },
+                orderBy: sortBy && sortBy in GetCategoryDTO ? { [sortBy]: order } : { createdAt: 'asc' },
+            }),
+            this.prisma.category.count({
+                where: {
+                    ...(searchKey && {
+                        OR: [
+                            { name: { search: searchKey, mode: 'insensitive' } },
+                            { slug: { search: searchKey, mode: 'insensitive' } },
+                        ],
+                    }),
+                },
+            }),
+        ]);
+
+        return createPagination<GetCategoryDTO>({
+            items: categories,
+            totalCount,
+            currentPage: page,
+            limit,
         });
     }
 
-    async showCategory(catId: number) {
-        await this.prisma.category.update({
-            where: {
-                id: catId,
-            },
-            data: {
-                isActived: true,
-            },
-        });
-    }
-
-    async getHomepageCategoryList(): Promise<Omit<Category, 'isActived' | 'createdAt' | 'updatedAt'>[]> {
+    async getHomepageCategoryList(): Promise<GetCategoryDTO[]> {
         const categories = await this.prisma.category.findMany({
             where: {
                 isActived: true,
                 parentCatId: null,
-            },
-            omit: {
-                createdAt: true,
-                updatedAt: true,
-                isActived: true,
-            },
-            include: {
-                children: false,
+                level: 1,
             },
             orderBy: {
                 slot: 'asc',
             },
         });
-        return categories.map((category) => ({
-            ...category,
-            children: null,
-        }));
+        return categories;
     }
 
     // chỉ lấy các category con thôi, không lấy các category cháu
-    async getChildrenCategory(parentCatId: number) {
+    async getChildrenCategory(parentCatId: number): Promise<GetCategoryDTO[]> {
         const categories = await this.prisma.category.findMany({
             where: {
                 isActived: true,
                 parentCatId,
-            },
-            omit: {
-                createdAt: true,
-                updatedAt: true,
-                isActived: true,
-            },
-            include: {
-                children: true,
             },
             orderBy: {
                 slot: 'asc',
@@ -120,5 +118,17 @@ export class CategoryService {
         });
 
         return categories;
+    }
+
+    async getCategoryTree(): Promise<TreeCategory[]> {
+        const categories = await this.prisma.category.findMany({});
+
+        const tree = categories.reduce((acc, cat) => {
+            Object.assign((acc[cat.id] = acc[cat.id] || {}), cat);
+            ((acc[cat.parentCatId] ??= {}).children ??= []).push(acc[cat.id]);
+            return acc;
+        }, {})['null'].children;
+
+        return tree;
     }
 }

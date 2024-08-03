@@ -8,6 +8,7 @@ import { MailService } from '../mail/mail.service';
 import { join } from 'path';
 import fs from 'fs';
 import { PrismaService } from '../prisma/prisma.service';
+import { envNumber } from '~/global/env';
 
 @Injectable()
 export class CronService {
@@ -23,6 +24,10 @@ export class CronService {
     @Cron(CronExpression.EVERY_MINUTE)
     async sendNotiFlashSale() {
         this.logger.log('--> Start checking the flash sale start time');
+
+        const test = envNumber('TIME_SEND_NOTIFICATIONhhh');
+        console.log(test);
+        console.log(typeof test);
 
         const timeSendNoti = this.config.get('TIME_SEND_NOTIFICATION');
         const flashSale = await this.flashSaleService.findUpcomingFlashSale(timeSendNoti);

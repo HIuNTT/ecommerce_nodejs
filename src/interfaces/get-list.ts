@@ -1,9 +1,10 @@
-import { Type } from 'class-transformer';
-import { IsNumber, IsOptional } from 'class-validator';
+import { Expose, Type } from 'class-transformer';
+import { IsArray, IsNumber, IsOptional } from 'class-validator';
 
 export class Filters {
     @IsOptional()
     @IsNumber()
+    @Expose()
     limit?: number;
 
     @IsOptional()
@@ -42,13 +43,6 @@ export class Filters {
     @IsOptional()
     @IsNumber()
     type?: number; // Mã status của đơn hàng
-}
-
-export class BasePagination {
-    totalCount: number;
-    totalPage: number;
-    pageIndex: number;
-    pageSize: number;
 }
 
 export class BaseInfiniteScroll {

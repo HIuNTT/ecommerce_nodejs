@@ -1,5 +1,4 @@
 import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
-import { errorResponse, successResponse } from '../../helpers/response.helper';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { BodyEmail } from '../otp/dto/verify-otp.dto';
 import { User } from '@prisma/client';
@@ -123,19 +122,17 @@ export class UserService {
     }
 
     //Kiểm tra xem email đã được dùng chưa (trong trường hợp lúc đăng ký không điền email)
-    async checkEmailAvailable(payload: BodyEmail) {
-        const user = await this.prisma.user.findFirst({
-            where: {
-                email: payload.email,
-            },
-        });
+    // async checkEmailAvailable(payload: BodyEmail) {
+    //     const user = await this.prisma.user.findFirst({
+    //         where: {
+    //             email: payload.email,
+    //         },
+    //     });
 
-        if (user) {
-            return new errorResponse(HttpStatus.BAD_REQUEST, 'Email already used');
-        } else {
-            return new successResponse(null, HttpStatus.OK, 'Email available');
-        }
-    }
+    //     if (user) {
+    //         return new BadRequestException('Email has been used');
+    //     }
+    // }
 
     async findUserById(userId: string): Promise<User | undefined> {
         return this.prisma.user.findUnique({
@@ -147,7 +144,7 @@ export class UserService {
     }
 
     async findUserByEmail(email: string) {
-        return this.prisma.user.findUnique({
+        return this.prisma.user.findFirst({
             where: {
                 email: email,
                 isActived: true,

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { ClassSerializerInterceptor, Module } from '@nestjs/common';
 import { AuthModule } from './modules/auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { UserModule } from './modules/user/user.module';
@@ -16,12 +16,18 @@ import { ItemModule } from './modules/item/item.module';
 import { VoucherModule } from './modules/voucher/voucher.module';
 import { FlashSaleModule } from './modules/flash-sale/flash-sale.module';
 import { OrderModule } from './modules/order/order.module';
+import configs from './configs';
 
 @Module({
     imports: [
         ConfigModule.forRoot({
+            expandVariables: true,
             isGlobal: true,
+            // Khi chỉ định nhiều tệp env, tệp nào xếp trước thì có độ ưu tiên cao hơn
+            envFilePath: ['.env.local', `.env.${process.env.NODE_ENV}`, '.env'],
+            load: [...Object.values(configs)],
         }),
+        // Giới hạn cùng 1 giao diện, không quá 7 request trong 10 giây
         ThrottlerModule.forRootAsync({
             useFactory: () => ({
                 errorMessage: 'Hoạt động hiện tại quá thường xuyên, vui lòng thử lại sau!',

@@ -1,8 +1,13 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { CreateCategoryDTO } from './category.dto';
-import { IsNotEmpty, IsNumber } from 'class-validator';
+import { IsBoolean, IsNumber } from 'class-validator';
 
 export class UpdateCategoryDTO extends CreateCategoryDTO {
-    @IsNotEmpty()
+    @ApiProperty({ description: 'Mã của danh mục cần chỉnh sửa' })
     @IsNumber()
     id: number;
+
+    @ApiProperty({ description: 'Ẩn/hiện danh mục', example: true })
+    @IsBoolean()
+    isActived: boolean = true;
 }

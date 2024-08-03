@@ -1,32 +1,13 @@
-export class successResponse<T> {
-    data: T | T[];
-    statusCode: number;
-    message: string;
-
-    constructor(data: T | T[], statusCode: number, message: string) {
-        this.message = message;
-        this.statusCode = statusCode;
-        this.data = data;
-
-        return this;
-    }
-}
-
-export class errorResponse {
-    message: string;
-    statusCode: number;
-
-    constructor(statusCode: number, message: string) {
-        this.message = message;
-        this.statusCode = statusCode;
-
-        return this;
-    }
-}
+import { ApiProperty } from '@nestjs/swagger';
 
 export class ResOp<T = any> {
+    @ApiProperty({ type: 'object' })
     data?: T;
+
+    @ApiProperty({ type: 'number', default: 200 })
     statusCode: number;
+
+    @ApiProperty({ type: 'string', default: 'Success' })
     message: string;
 
     constructor(statusCode: number = 200, data: T, message: string = 'Success') {
@@ -34,4 +15,15 @@ export class ResOp<T = any> {
         this.message = message;
         this.data = data;
     }
+}
+
+export class TreeResult<T> {
+    @ApiProperty()
+    id: number;
+
+    @ApiProperty()
+    parentId: number;
+
+    @ApiProperty()
+    children?: TreeResult<T>[];
 }

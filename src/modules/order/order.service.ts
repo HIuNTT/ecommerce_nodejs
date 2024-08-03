@@ -9,7 +9,7 @@ import { Filters } from '~/interfaces';
 export class OrderService {
     constructor(private readonly prisma: PrismaService) {}
 
-    async createOrder(body: CreateOrderDTO, userId: string) {
+    async createOrder(body: CreateOrderDTO, userId: string): Promise<void> {
         const { voucher, items, address, note, paymentMethod } = body;
 
         const orderItems: Omit<OrderItem, 'orderId'>[] = [];
@@ -149,7 +149,7 @@ export class OrderService {
             totalPrice -= voucherDiscountedPrice;
         }
 
-        return this.prisma.$transaction(async (prisma) => {
+        await this.prisma.$transaction(async (prisma) => {
             // 1. Tạo order của user
             const order = await prisma.order.create({
                 data: {
@@ -298,7 +298,6 @@ export class OrderService {
             });
 
             await Promise.all(updateItems);
-            return order;
         });
     }
 

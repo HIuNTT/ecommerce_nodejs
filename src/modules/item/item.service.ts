@@ -1,12 +1,14 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '~/shared/prisma/prisma.service';
-import { CreateItemDTO } from './dto/item.dto';
+import { CreateItemDTO, GetItemDetailDTO, GetItemDTO, ItemQueryDTO } from './dto/item.dto';
 import slugify from 'slugify';
 import { Item } from '@prisma/client';
 import { UpdateItemDTO } from './dto/update-item.dto';
-import { Filters } from '~/interfaces';
 import { isArray, isNumber } from 'lodash';
 import { OrderService } from '../order/order.service';
+import dayjs from 'dayjs';
+import { createPagination } from '~/helpers/paginate/create-pagination';
+import { Pagination } from '~/helpers/paginate/pagination';
 
 @Injectable()
 export class ItemService {
@@ -15,174 +17,136 @@ export class ItemService {
         private readonly orderService: OrderService,
     ) {}
 
-    async getListItem(filters: Filters) {
-        const {
-            limit = 20,
-            page = 1,
-            order = '',
-            sortBy = '',
-            search = '',
-            categoryId,
-            minPrice = 0,
-            maxPrice = 999999999,
-        } = filters;
-        const skip = page > 1 ? (page - 1) * limit : 0;
-        console.log(categoryId);
+    async getListItem(filters: ItemQueryDTO): Promise<Pagination<GetItemDTO>> {
+        const { limit, page, order, sortBy, search, categoryId, min, max, actived, user } = filters;
 
+        console.log(categoryId);
         const searchKey = search ? search.trim().split(/\s+/).join(' & ') : '';
 
-        const [items, totalCount] = await this.prisma.$transaction([
+        const [items, totalCount] = await Promise.all([
             this.prisma.item.findMany({
                 take: limit,
-                skip,
+                skip: filters.skip,
                 where: {
-                    AND: [
-                        searchKey
-                            ? {
-                                  OR: [
-                                      { name: { search: searchKey, mode: 'insensitive' } },
-                                      { description: { search: searchKey, mode: 'insensitive' } },
-                                      { slug: { search: searchKey, mode: 'insensitive' } },
-                                  ],
-                              }
-                            : {},
-                        categoryId
-                            ? isArray(categoryId)
-                                ? { categories: { some: { categoryId: { in: categoryId } } } }
-                                : isNumber(categoryId)
-                                  ? { categories: { some: { categoryId } } }
-                                  : {}
-                            : {},
-                        { price: { gte: minPrice, lte: maxPrice } },
-                        { isActived: true },
-                    ],
+                    ...(searchKey && {
+                        OR: [
+                            { name: { search: searchKey, mode: 'insensitive' } },
+                            { description: { search: searchKey, mode: 'insensitive' } },
+                            { slug: { search: searchKey, mode: 'insensitive' } },
+                        ],
+                    }),
+                    ...(isArray(categoryId) && { categories: { some: { categoryId: { in: categoryId } } } }),
+                    ...(isNumber(categoryId) && { categories: { some: { categoryId } } }),
+                    price: { gte: min, lte: max },
+                    isActived: actived,
                 },
-                orderBy: sortBy ? { [sortBy]: order || 'desc' } : { updatedAt: 'desc' },
+                orderBy: sortBy && sortBy in GetItemDTO ? { [sortBy]: order || 'desc' } : { updatedAt: 'desc' },
                 omit: {
                     isBestseller: true,
+                    importPrice: true,
+                },
+                include: {
+                    categories: {
+                        select: {
+                            category: true,
+                        },
+                    },
+                    ...(user && {
+                        flashSales: {
+                            where: {
+                                flashSale: {
+                                    endTime: {
+                                        gte: dayjs().toISOString(),
+                                    },
+                                },
+                            },
+                            omit: {
+                                itemId: true,
+                                createdAt: true,
+                                updatedAt: true,
+                            },
+                        },
+                    }),
                 },
             }),
             this.prisma.item.count({
                 where: {
-                    AND: [
-                        searchKey
-                            ? {
-                                  OR: [
-                                      { name: { search: searchKey, mode: 'insensitive' } },
-                                      { description: { search: searchKey, mode: 'insensitive' } },
-                                      { slug: { search: searchKey, mode: 'insensitive' } },
-                                  ],
-                              }
-                            : {},
-                        categoryId
-                            ? isArray(categoryId)
-                                ? { categories: { some: { categoryId: { in: categoryId } } } }
-                                : isNumber(categoryId)
-                                  ? { categories: { some: { categoryId } } }
-                                  : {}
-                            : {},
-                        { price: { gte: minPrice, lte: maxPrice } },
-                        { isActived: true },
-                    ],
+                    ...(searchKey && {
+                        OR: [
+                            { name: { search: searchKey, mode: 'insensitive' } },
+                            { description: { search: searchKey, mode: 'insensitive' } },
+                            { slug: { search: searchKey, mode: 'insensitive' } },
+                        ],
+                    }),
+                    ...(isArray(categoryId) && { categories: { some: { categoryId: { in: categoryId } } } }),
+                    ...(isNumber(categoryId) && { categories: { some: { categoryId } } }),
+                    price: { gte: min, lte: max },
+                    isActived: actived,
                 },
             }),
         ]);
 
-        return {
-            totalCount,
-            totalPage: Math.ceil(totalCount / limit),
-            pageIndex: page,
-            pageSize: limit,
+        return createPagination<GetItemDTO>({
             items,
-        };
+            totalCount,
+            currentPage: page,
+            limit,
+        });
     }
 
-    async getItemById(itemId: number): Promise<Omit<Item, 'isActived' | 'isBestseller' | 'createdAt'>> {
-        return await this.prisma.item
-            .findUnique({
-                where: {
-                    id: itemId,
-                },
-                omit: {
-                    isBestseller: true,
-                    createdAt: true,
-                    isActived: true,
-                },
-                include: {
-                    categories: {
-                        select: {
-                            category: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    level: true,
-                                    slug: true,
+    async getItemById(itemId: number, user: boolean): Promise<GetItemDetailDTO> {
+        const item = await this.prisma.item.findUnique({
+            where: {
+                id: itemId,
+            },
+            include: {
+                ...(user && {
+                    flashSales: {
+                        where: {
+                            flashSale: {
+                                endTime: {
+                                    gte: dayjs().toISOString(),
                                 },
                             },
                         },
-                    },
-                    galleries: {
-                        select: {
-                            imageUrl: true,
-                            slot: true,
+                        omit: {
+                            itemId: true,
+                            createdAt: true,
+                            updatedAt: true,
                         },
                     },
-                },
-            })
-            .then((resultItems) => {
-                const newCat = resultItems.categories.map((category) => category.category);
-                return {
-                    ...resultItems,
-                    categories: newCat,
-                };
-            });
-    }
-
-    async getItemBySlug(slug: string): Promise<Omit<Item, 'isActived' | 'isBestseller' | 'createdAt'>> {
-        return await this.prisma.item
-            .findUnique({
-                where: {
-                    slug,
-                },
-                omit: {
-                    isBestseller: true,
-                    createdAt: true,
-                    isActived: true,
-                },
-                include: {
-                    categories: {
-                        select: {
-                            category: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    level: true,
-                                    slug: true,
-                                },
+                }),
+                categories: {
+                    select: {
+                        category: {
+                            select: {
+                                id: true,
+                                name: true,
+                                slug: true,
                             },
                         },
                     },
-                    galleries: {
-                        select: {
-                            imageUrl: true,
-                            slot: true,
-                        },
+                },
+                galleries: {
+                    select: {
+                        imageUrl: true,
+                        slot: true,
                     },
                 },
-            })
-            .then((resultItems) => {
-                const newCat = resultItems.categories.map((category) => category.category);
-                return {
-                    ...resultItems,
-                    categories: newCat,
-                };
-            });
+            },
+        });
+
+        if (!item) {
+            throw new BadRequestException('Item not found');
+        }
+
+        return item;
     }
 
-    async createItem(body: CreateItemDTO): Promise<Omit<Item, 'updatedAt' | 'isBestseller'>> {
+    async createItem(body: CreateItemDTO) {
         const { galleries, categories, ...itemData } = body;
 
-        return await this.prisma.item.create({
+        await this.prisma.item.create({
             data: {
                 ...itemData,
                 slug: slugify(itemData.name, { lower: true, strict: true, locale: 'vi' }),
@@ -204,97 +168,39 @@ export class ItemService {
                     })),
                 },
             },
-            omit: {
-                updatedAt: true,
-                isBestseller: true,
-            },
-            include: {
-                galleries: {
-                    select: {
-                        imageUrl: true,
-                        slot: true,
-                        createdAt: true,
-                    },
-                },
-                categories: {
-                    select: {
-                        category: {
-                            select: {
-                                id: true,
-                                name: true,
-                                level: true,
-                                slug: true,
-                            },
-                        },
-                    },
-                },
-            },
         });
     }
 
-    async updateItem(body: UpdateItemDTO): Promise<Omit<Item, 'createdAt' | 'isBestseller'>> {
+    async updateItem(body: UpdateItemDTO) {
         const { galleries, categories, ...itemData } = body;
-        return await this.prisma.item
-            .update({
-                where: {
-                    id: itemData.id,
+        await this.prisma.item.update({
+            where: {
+                id: itemData.id,
+            },
+            data: {
+                ...itemData,
+                slug: slugify(itemData.name, { lower: true, strict: true, locale: 'vi' }),
+                galleries: {
+                    // Xóa tất cả các ảnh và tạo mới hoàn toàn
+                    deleteMany: {},
+                    create: galleries.map((gallery, index) => ({
+                        imageUrl: gallery.imageUrl,
+                        slot: gallery.slot || index + 1,
+                    })),
                 },
-                data: {
-                    ...itemData,
-                    slug: slugify(itemData.name, { lower: true, strict: true, locale: 'vi' }),
-                    galleries: {
-                        // Xóa tất cả các ảnh và tạo mới hoàn toàn
-                        deleteMany: {},
-                        create: galleries.map((gallery, index) => ({
-                            imageUrl: gallery.imageUrl,
-                            slot: gallery.slot || index + 1,
-                        })),
-                    },
-                    categories: {
-                        // Xóa tất cả bản ghi có itemId trong bảng trung gian giữa category và item
-                        deleteMany: {},
-                        create: categories.map((category) => ({
-                            category: {
-                                connect: {
-                                    id: category.id,
-                                },
-                            },
-                        })),
-                    },
-                },
-                omit: {
-                    createdAt: true,
-                    isBestseller: true,
-                },
-                include: {
-                    galleries: {
-                        select: {
-                            id: true,
-                            imageUrl: true,
-                            slot: true,
-                            updatedAt: true,
-                        },
-                    },
-                    categories: {
-                        select: {
-                            category: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    level: true,
-                                },
+                categories: {
+                    // Xóa tất cả bản ghi có itemId trong bảng trung gian giữa category và item
+                    deleteMany: {},
+                    create: categories.map((category) => ({
+                        category: {
+                            connect: {
+                                id: category.id,
                             },
                         },
-                    },
+                    })),
                 },
-            })
-            .then((resultItems) => {
-                const newCat = resultItems.categories.map((category) => category.category);
-                return {
-                    ...resultItems,
-                    categories: newCat,
-                };
-            });
+            },
+        });
     }
 
     async deleteItem(itemId: number): Promise<void> {

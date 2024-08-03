@@ -9,10 +9,10 @@ import { BodyEmail } from '../otp/dto/verify-otp.dto';
 export class UserController {
     constructor(private readonly userService: UserService) {}
 
-    @Post('check-email-available')
-    @UseGuards(AccessTokenGuard)
-    @HttpCode(HttpStatus.OK)
-    async checkEmailAvailable(@Body() body: BodyEmail) {
-        return this.userService.checkEmailAvailable(body);
-    }
+    // @Post('check-email-available')
+    // @UseGuards(AccessTokenGuard)
+    // @HttpCode(HttpStatus.OK)
+    // async checkEmailAvailable(@Body() body: BodyEmail) {
+    //     return this.userService.checkEmailAvailable(body);
+    // }
 }

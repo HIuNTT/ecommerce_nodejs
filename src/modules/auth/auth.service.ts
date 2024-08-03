@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { ForgotPasswordDTO, RegisterDTO } from './dto';
 import { compare, hash } from '../../helpers/encryption.helper';
@@ -11,6 +11,8 @@ import crypto from 'crypto';
 import { MailService } from '~/shared/mail/mail.service';
 import { join } from 'path';
 import fs from 'fs';
+import { ISecurityConfig, SecurityConfig } from '~/configs/security.config';
+import passport from 'passport';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +22,7 @@ export class AuthService {
         private config: ConfigService,
         private readonly userService: UserService,
         private readonly mailService: MailService,
+        @Inject(SecurityConfig.KEY) private securityConfig: ISecurityConfig,
     ) {}
 
     async register(bodyReq: RegisterDTO): Promise<Tokens> {
@@ -95,29 +98,25 @@ export class AuthService {
         return tokens;
     }
 
-    async logout(userId: string) {
-        try {
-            const { count } = await this.prisma.user.updateMany({
-                where: {
-                    id: userId,
-                    refreshToken: {
-                        not: null,
-                    },
+    async logout(userId: string): Promise<void> {
+        const { count } = await this.prisma.user.updateMany({
+            where: {
+                id: userId,
+                refreshToken: {
+                    not: null,
                 },
-                data: {
-                    refreshToken: null,
-                },
-            });
+            },
+            data: {
+                refreshToken: null,
+            },
+        });
 
-            if (!count) {
-                throw new BadRequestException('Already logout');
-            }
-        } catch (error) {
-            throw error;
+        if (!count) {
+            throw new BadRequestException('Already logout');
         }
     }
 
-    async refreshToken(userId: string, refreshToken: string) {
+    async refreshToken(userId: string, refreshToken: string): Promise<Tokens> {
         const user = await this.prisma.user.findUnique({
             where: {
                 id: userId,
@@ -159,8 +158,8 @@ export class AuthService {
                     sub: payload.userId,
                 },
                 {
-                    secret: this.config.get('AT_SECRET'),
-                    expiresIn: '15m',
+                    secret: this.securityConfig.jwtSecret,
+                    expiresIn: this.securityConfig.jwtExpire,
                 },
             ),
             this.jwtService.signAsync(
@@ -168,8 +167,8 @@ export class AuthService {
                     sub: payload.userId,
                 },
                 {
-                    secret: this.config.get('RT_SECRET'),
-                    expiresIn: '7d',
+                    secret: this.securityConfig.refreshSecret,
+                    expiresIn: this.securityConfig.refreshExpire,
                 },
             ),
         ]);

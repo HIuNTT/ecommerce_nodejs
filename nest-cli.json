@@ -5,6 +5,14 @@
     "compilerOptions": {
         "deleteOutDir": true,
         "assets": [{ "include": "templates/**/*", "outDir": "./dist/src" }],
-        "watchAssets": true
+        "watchAssets": true,
+        "plugins": [
+            {
+                "name": "@nestjs/swagger",
+                "options": {
+                    "introspectComments": true
+                }
+            }
+        ]
     }
 }

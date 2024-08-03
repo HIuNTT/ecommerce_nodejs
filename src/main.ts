@@ -5,9 +5,29 @@ import { AppModule } from './app.module';
 import { HttpStatus, UnprocessableEntityException, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
+import { ConfigService } from '@nestjs/config';
+import { setupSwagger } from './setup-swagger';
+import helmet from 'helmet';
+import { isDev } from './global/env';
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+    const configService = app.get(ConfigService);
+
+    const { port, globalPrefix, version } = configService.get('app', { infer: true });
+
+    // app.use(
+    //     helmet({
+    //         contentSecurityPolicy: {
+    //             directives: {
+    //                 defaultSrc: ["'self'"],
+    //                 connectSrc: ["'self'", `http://127.0.0.1:${port}`],
+    //             },
+    //         },
+    //     }),
+    // );
+    app.enableCors({ origin: '*', credentials: true });
 
     app.useGlobalPipes(
         new ValidationPipe({
@@ -32,25 +52,27 @@ async function bootstrap() {
 
     app.enableVersioning({
         type: VersioningType.URI,
-        defaultVersion: '1',
+        defaultVersion: version,
     });
 
-    app.useGlobalInterceptors(new LoggingInterceptor());
+    if (isDev) {
+        app.useGlobalInterceptors(new LoggingInterceptor());
+    }
 
-    app.enableCors();
     app.setViewEngine('hbs');
-    app.setGlobalPrefix('api');
+    app.setGlobalPrefix(globalPrefix);
 
-    // Starts listening for shutdown hooks
-    app.enableShutdownHooks();
+    setupSwagger(app, configService);
 
-    await app.listen(3000);
+    await app.listen(port, '0.0.0.0', async () => {
+        const url = await app.getUrl();
+        console.log(`Application is running on: ${url}`);
+        console.log(`OpenAPI: ${url}/api-docs`);
+    });
 
     if (module.hot) {
         module.hot.accept();
         module.hot.dispose(() => app.close());
     }
-
-    console.log(`Application is running on: ${await app.getUrl()}`);
 }
 bootstrap();

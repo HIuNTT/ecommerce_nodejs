@@ -1,57 +1,97 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '~/shared/prisma/prisma.service';
-import { CreateFlashSaleDTO, UpdateFlashSaleDTO } from './dto/flash-sale.dto';
+import {
+    CreateFlashSaleDTO,
+    FlashSaleQueryDTO,
+    GetFlashSaleDetailDTO,
+    GetFlashSaleDTO,
+    UpdateFlashSaleDTO,
+} from './dto/flash-sale.dto';
 import dayjs from 'dayjs';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+
 import { FLASHSALE_STATUS } from '~/enums/status.enum';
-import { Filters } from '~/interfaces';
-import { FlashSale } from '@prisma/client';
+import { Order } from '~/interfaces/pager.dto';
+import { createPagination } from '~/helpers/paginate/create-pagination';
+import { Pagination } from '~/helpers/paginate/pagination';
+import { GetItemFlashSaleDTO, ItemFlashSaleQueryDTO } from './dto/flash-sale-item.dto';
+
+dayjs.extend(isSameOrAfter);
+dayjs.extend(isSameOrBefore);
 
 @Injectable()
 export class FlashSaleService {
     constructor(private readonly prisma: PrismaService) {}
 
     // Lấy ra các flash sale đang diễn ra và sắp diễn ra gần với thời gian hiện tại nhất, mặc định 5 cái gần nhất
-    async getFlashSales(
-        filters: Filters,
-    ): Promise<Omit<FlashSale, 'isActived' | 'createdAt' | 'updatedAt' | 'status'>[]> {
-        const { limit = 5 } = filters;
-        console.log(dayjs().toISOString());
-        const flashSales = await this.prisma.flashSale.findMany({
-            where: {
-                OR: [
-                    {
+    async getFlashSales(filters: FlashSaleQueryDTO): Promise<Pagination<GetFlashSaleDTO>> {
+        const { limit, page, sortBy = 'startTime', order = Order.DESC, actived, status } = filters;
+        const [flashSales, totalCount] = await Promise.all([
+            this.prisma.flashSale.findMany({
+                where: {
+                    ...(status === FLASHSALE_STATUS.UPCOMING && {
                         startTime: { gt: dayjs().toISOString() },
-                    },
-                    {
+                    }),
+                    ...(status === FLASHSALE_STATUS.ONGOING && {
                         startTime: { lte: dayjs().toISOString() },
                         endTime: { gte: dayjs().toISOString() },
+                    }),
+                    ...(status === FLASHSALE_STATUS.ENDED && {
+                        endTime: { lt: dayjs().toISOString() },
+                    }),
+                    isActived: actived,
+                },
+                orderBy: {
+                    ...(sortBy && { [sortBy]: order }),
+                },
+                take: limit,
+                skip: filters.skip,
+                include: {
+                    _count: {
+                        select: {
+                            items: true,
+                        },
                     },
-                ],
-                isActived: true,
-            },
-            orderBy: {
-                startTime: 'asc',
-            },
-            take: limit,
-            skip: 0,
-            select: {
-                id: true,
-                name: true,
-                startTime: true,
-                endTime: true,
-            },
-        });
+                },
+            }),
+            this.prisma.flashSale.count({
+                where: {
+                    ...(status === FLASHSALE_STATUS.UPCOMING && {
+                        startTime: { gt: dayjs().toISOString() },
+                    }),
+                    ...(status === FLASHSALE_STATUS.ONGOING && {
+                        startTime: { lte: dayjs().toISOString() },
+                        endTime: { gte: dayjs().toISOString() },
+                    }),
+                    ...(status === FLASHSALE_STATUS.ENDED && {
+                        endTime: { lt: dayjs().toISOString() },
+                    }),
+                    isActived: actived,
+                },
+            }),
+        ]);
 
         if (!flashSales) {
             throw new BadRequestException('No flash sales found');
         }
 
-        return flashSales;
+        return createPagination<GetFlashSaleDTO>({
+            items: flashSales,
+            totalCount,
+            currentPage: page,
+            limit,
+        });
     }
 
-    // Lấy ra danh sách các items thuộc flash sale có id là flashSaleId
-    async getItemsByFlashSaleId(filters: Filters) {
-        const { flashSaleId, limit = 16, sortBy = 'slot', order = 'asc' } = filters;
+    // Lấy ra danh sách các items thuộc flash sale có id là flashSaleId (đang diễn ra or sắp diễn ra)
+    async getItemsByFlashSaleId(
+        filters: ItemFlashSaleQueryDTO,
+        flashSaleId: number,
+    ): Promise<Pagination<GetItemFlashSaleDTO>> {
+        const { limit, categoryId, page } = filters;
+
+        // Kiểm tra xem có flash sale nào đang diễn ra hoặc sắp diễn ra không?
         const flashSale = await this.prisma.flashSale.findUnique({
             where: {
                 id: flashSaleId,
@@ -73,45 +113,88 @@ export class FlashSaleService {
             throw new BadRequestException('Flash sale not found');
         }
 
-        return this.prisma.flashSale.findUnique({
+        const [flashSaleItem, totalCount] = await Promise.all([
+            this.prisma.item.findMany({
+                where: {
+                    isActived: true,
+                    flashSales: {
+                        some: {
+                            flashSaleId,
+                        },
+                    },
+                    ...(categoryId && { categories: { some: { categoryId } } }),
+                },
+                skip: filters.skip,
+                take: limit,
+                include: {
+                    flashSales: {
+                        where: {
+                            flashSaleId,
+                        },
+                        select: {
+                            sold: true,
+                            slot: true,
+                            discountedPrice: true,
+                            discountPercentage: true,
+                            quantity: true,
+                            flashSaleId: true,
+                        },
+                    },
+                },
+            }),
+            this.prisma.item.count({
+                where: {
+                    isActived: true,
+                    flashSales: {
+                        some: {
+                            flashSaleId,
+                        },
+                    },
+                    ...(categoryId && { categories: { some: { categoryId } } }),
+                },
+            }),
+        ]);
+        return createPagination<GetItemFlashSaleDTO>({
+            items: flashSaleItem,
+            totalCount,
+            currentPage: page,
+            limit,
+        });
+    }
+
+    async getFlashSaleDetail(flashSaleId: number): Promise<GetFlashSaleDetailDTO> {
+        const flashSale = await this.prisma.flashSale.findUnique({
             where: {
                 id: flashSaleId,
             },
-            omit: {
-                status: true,
-                createdAt: true,
-                updatedAt: true,
-            },
             include: {
                 items: {
-                    orderBy: {
-                        [sortBy || 'slot']: order || 'asc',
-                    },
                     omit: {
                         createdAt: true,
                         updatedAt: true,
                         flashSaleId: true,
-                        itemId: true,
+                        sold: true,
                     },
-                    take: limit,
                     include: {
                         item: {
                             select: {
-                                id: true,
-                                barcode: true,
                                 name: true,
-                                slug: true,
                                 thumbnail: true,
-                                oldPrice: true,
                             },
                         },
                     },
                 },
             },
         });
+
+        if (!flashSale) {
+            throw new BadRequestException('Flash sale not found');
+        }
+
+        return flashSale;
     }
 
-    async createFlashSale(body: CreateFlashSaleDTO) {
+    async createFlashSale(body: CreateFlashSaleDTO): Promise<void> {
         const { items, startTime, endTime, ...flashSaleData } = body;
 
         await this.prisma.flashSale.create({
@@ -129,29 +212,29 @@ export class FlashSaleService {
         });
     }
 
-    async updateFlashSale(body: UpdateFlashSaleDTO) {
-        const { items, startTime, endTime, ...flashSaleData } = body;
+    async updateFlashSale(body: UpdateFlashSaleDTO): Promise<void> {
+        const { items, startTime, endTime, id, name } = body;
 
-        const { status } = await this.prisma.flashSale.findUnique({
+        const flashSale = await this.prisma.flashSale.findUnique({
             where: {
                 id: body.id,
             },
         });
 
-        if (status === FLASHSALE_STATUS.ENDED) {
+        if (dayjs().isAfter(flashSale.endTime)) {
             throw new BadRequestException('Cannot update an ended flash sale');
         }
 
-        if (status === FLASHSALE_STATUS.ONGOING) {
+        if (dayjs().isSameOrAfter(flashSale.startTime) && dayjs().isSameOrBefore(flashSale.endTime)) {
             throw new BadRequestException('Cannot update an ongoing flash sale');
         }
 
         await this.prisma.flashSale.update({
             where: {
-                id: body.id,
+                id,
             },
             data: {
-                ...flashSaleData,
+                name,
                 startTime: dayjs(startTime).subtract(7, 'hours').toISOString(),
                 endTime: dayjs(endTime).subtract(7, 'hours').toISOString(),
                 items: {
@@ -165,14 +248,17 @@ export class FlashSaleService {
         });
     }
 
-    async deleteFlashSale(flashSaleId: number) {
-        const { status } = await this.prisma.flashSale.findUnique({
+    async deleteFlashSale(flashSaleId: number): Promise<void> {
+        const flashSale = await this.prisma.flashSale.findUnique({
             where: {
                 id: flashSaleId,
             },
         });
 
-        if (status === FLASHSALE_STATUS.ONGOING || status === FLASHSALE_STATUS.ENDED) {
+        if (
+            (dayjs().isSameOrAfter(flashSale.startTime) && dayjs().isSameOrBefore(flashSale.endTime)) ||
+            dayjs().isAfter(flashSale.endTime)
+        ) {
             throw new BadRequestException('Cannot delete an ongoing or ended flash sale');
         }
 
@@ -183,6 +269,7 @@ export class FlashSaleService {
         });
     }
 
+    // Dùng cho schedule
     async findUpcomingFlashSale(time: number) {
         console.log(dayjs().add(time, 'minutes').toISOString());
         return this.prisma.flashSale.findFirst({
