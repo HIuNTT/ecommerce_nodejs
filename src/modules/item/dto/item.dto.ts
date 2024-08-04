@@ -105,13 +105,6 @@ export class GetItemDetailDTO extends OmitType(CreateItemDTO, [
     flashSales?: GetFlashSaleItemDTO[];
 }
 
-export class GetItemOfOrder {
-    id: number;
-    name: string;
-    thumbnail: string;
-    oldPrice: number | Decimal;
-}
-
 export class ItemQueryDTO extends PagerDTO {
     @ApiProperty({ description: 'Từ khóa tìm kiếm' })
     @IsString()

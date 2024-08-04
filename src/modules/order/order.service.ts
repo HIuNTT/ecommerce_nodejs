@@ -1,10 +1,30 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '~/shared/prisma/prisma.service';
-import { CancelOrderDTO, CreateOrderDTO, OrderInfiniteScroll } from './dto/order.dto';
+import {
+    CancelOrderDTO,
+    CreateOrderDTO,
+    GetOrderAdminDTO,
+    GetOrderDetailDTO,
+    GetOrderDTO,
+    OrderQueryDTO,
+    OrderUserQueryDTO,
+} from './dto/order.dto';
 import dayjs from 'dayjs';
 import { Order, OrderItem } from '@prisma/client';
-import { Filters } from '~/interfaces';
+import { isEmpty } from 'lodash';
+import { createPagination } from '~/helpers/paginate/create-pagination';
+import { Pagination } from '~/helpers/paginate/pagination';
 
+async function formatResult(result: any) {
+    return {
+        ...result,
+        items: result.items.map((e: any) => ({
+            ...e.item,
+            price: e.price,
+            quantity: e.quantity,
+        })),
+    };
+}
 @Injectable()
 export class OrderService {
     constructor(private readonly prisma: PrismaService) {}
@@ -51,13 +71,15 @@ export class OrderService {
             console.log('Stock check passed');
             // Kiểm tra xem sản phẩm thuộc flash sale còn đủ số lượng không
             if (
-                product.flashSales.length > 0 &&
+                !isEmpty(product.flashSales) &&
                 product.flashSales[0].quantity &&
                 product.flashSales[0].sold + item.quantity > product.flashSales[0].quantity
             ) {
-                throw new BadRequestException(`Item ${product.name} is not in enough stock`);
+                throw new BadRequestException(`Item ${product.name} flash sale is not in enough stock`);
             }
             console.log('Flash sale stock check passed');
+
+            let isOrderLimited = false;
             // Kiểm tra xem user đã đặt giới hạn đặt hàng sản phẩm flash sale chưa
             if (product.flashSales[0]?.orderLimit) {
                 // Lấy ra tất cả order item của user mà có sp hiện đang xét, và nó thuộc flash sale đang ongoing
@@ -78,7 +100,6 @@ export class OrderService {
                         },
                     },
                 });
-                console.log('User order items:', userOrderItems);
 
                 if (userOrderItems) {
                     // Đếm tổng số lượng sản phẩm đang xét thuộc flash sale mà user đã đặt mua
@@ -87,14 +108,20 @@ export class OrderService {
                         0,
                     );
                     // Kiểm tra xem sản phẩm đang xét có số lượng quantity vượt quá giới hạn đặt hàng flash sale không?
+                    // Nếu mua nhiều hơn số lượng giới hạn (orderLimit) thì đơn giá sẽ về giá bình thường
                     if (userOrderItemCount + item.quantity > product.flashSales[0].orderLimit) {
-                        throw new BadRequestException(`Item ${product.name} has reached its order limit`);
+                        isOrderLimited = true; // = true tức là đã đặt giới hạn, quay về giá bình thường
+                        console.log(`Item ${product.name} has reached its order limit`);
                     }
+                } else {
+                    // Nếu user chưa mua sản phẩm này trong flash sale, thì kiếm tra nếu số lượng đặt mua lớn hơn order limit thì quay về giá thường
+                    if (item.quantity > product.flashSales[0].orderLimit) isOrderLimited = true;
+                    console.log(`Order limit has been exceeded`);
                 }
             }
-            console.log('Order limit check passed');
 
-            const unitPrice = product.flashSales.length > 0 ? product.flashSales[0].discountedPrice : product.price;
+            const unitPrice =
+                !isEmpty(product.flashSales) && !isOrderLimited ? product.flashSales[0].discountedPrice : product.price;
             orderItems.push({
                 itemId: item.itemId,
                 quantity: item.quantity,
@@ -149,7 +176,7 @@ export class OrderService {
             totalPrice -= voucherDiscountedPrice;
         }
 
-        await this.prisma.$transaction(async (prisma) => {
+        this.prisma.$transaction(async (prisma) => {
             // 1. Tạo order của user
             const order = await prisma.order.create({
                 data: {
@@ -259,7 +286,7 @@ export class OrderService {
                 });
 
                 let flashSaleId = 0;
-                if (product.flashSales.length > 0) {
+                if (product?.flashSales.length > 0) {
                     flashSaleId = product.flashSales[0].flashSaleId;
                 }
 
@@ -298,19 +325,31 @@ export class OrderService {
             });
 
             await Promise.all(updateItems);
+            return order;
         });
     }
 
     // Người dùng xem chi tiết đơn hàng
-    async getOrderDetailById(orderId: string, userId: string) {
-        return await this.prisma.order.findUnique({
+    async getOrderDetailById(orderId: string, userId: string): Promise<GetOrderDetailDTO> {
+        const order = await this.prisma.order.findUnique({
             where: {
                 id: orderId,
                 user: {
                     id: userId,
                 },
             },
-            include: {
+            select: {
+                id: true,
+                recipientName: true,
+                recipientPhone: true,
+                recipientAddress: true,
+                note: true,
+                orderStatus: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
                 items: {
                     select: {
                         item: {
@@ -321,68 +360,82 @@ export class OrderService {
                                 oldPrice: true,
                             },
                         },
-                        quantity: true,
                         price: true,
+                        quantity: true,
                     },
                 },
-                paymentMethod: true,
-                orderStatus: {
+                paymentMethod: {
                     select: {
                         id: true,
                         name: true,
                     },
                 },
-            },
-            omit: {
-                voucherId: true,
-                orderStatusId: true,
-                paymentMethodId: true,
+                voucherPrice: true,
+                totalPrice: true,
+                createdAt: true,
             },
         });
+
+        if (!order) {
+            throw new NotFoundException('Order not found');
+        }
+
+        return formatResult(order);
     }
 
     // Lấy ra danh sách đơn hàng của user, có lọc status đơn hàng qua param TYPE (mã status)
-    async getListOrdersUser(userId: string, filter: Filters): Promise<OrderInfiniteScroll> {
-        const { limit = 5, offset = 0, type = 0 } = filter; // Nếu không có type thì mặc định lấy ra tất cả đơn hàng mà không lọc status
-        const orders = await this.prisma.order.findMany({
-            where: {
-                userId,
-                orderStatusId: type ? { equals: type } : {},
-            },
-            skip: offset,
-            take: limit,
-            orderBy: {
-                updatedAt: 'desc',
-            },
-            select: {
-                id: true,
-                totalPrice: true,
-                orderStatus: {
-                    select: {
-                        id: true,
-                        name: true,
-                    },
+    async getListOrdersUser(userId: string, query: OrderUserQueryDTO): Promise<Pagination<GetOrderDTO>> {
+        const { page, limit, type, skip } = query; // Nếu không có type thì mặc định lấy ra tất cả đơn hàng mà không lọc status
+        const [orders, totalCount] = await Promise.all([
+            this.prisma.order.findMany({
+                where: {
+                    userId,
+                    ...(type && { orderStatusId: type }),
                 },
-                items: {
-                    select: {
-                        quantity: true,
-                        price: true,
-                        item: {
-                            select: {
-                                id: true,
-                                name: true,
-                                thumbnail: true,
-                                oldPrice: true,
-                            },
+                skip,
+                take: limit,
+                orderBy: {
+                    createdAt: 'desc',
+                },
+                select: {
+                    id: true,
+                    orderStatus: {
+                        select: {
+                            id: true,
+                            name: true,
                         },
                     },
+                    items: {
+                        select: {
+                            item: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    thumbnail: true,
+                                    oldPrice: true,
+                                },
+                            },
+                            price: true,
+                            quantity: true,
+                        },
+                    },
+                    totalPrice: true,
                 },
-            },
+            }),
+            this.prisma.order.count({
+                where: {
+                    userId,
+                    ...(type && { orderStatusId: type }),
+                },
+            }),
+        ]);
+
+        return createPagination<GetOrderDTO>({
+            items: await Promise.all(orders.map((order) => formatResult(order))),
+            currentPage: page,
+            limit,
+            totalCount,
         });
-        return {
-            ordersList: orders || null,
-            nextOffset: orders ? limit + offset : -1,
-        };
     }
 
     async cancelOrder(userId: string, { orderId }: CancelOrderDTO): Promise<void> {
@@ -390,17 +443,119 @@ export class OrderService {
         if (!order) {
             throw new NotFoundException('Order not found');
         }
-        await this.prisma.order.update({
-            where: {
-                id: orderId,
-                userId,
-                orderStatusId: {
-                    in: [1, 2, 3],
+
+        // Chỉ các đơn hàng đang trong trạng thái PENDING, CONFIRMED, PREPARING mới được hủy đơn hàng
+        if (order.orderStatusId in [1, 2, 3]) {
+            await this.prisma.order.update({
+                where: {
+                    id: orderId,
+                    userId,
+                    orderStatusId: {
+                        in: [1, 2, 3],
+                    },
                 },
-            },
-            data: {
-                orderStatusId: 6, // 6 là status CANCELLED
-            },
+                data: {
+                    orderStatusId: 6, // 6 là status CANCELLED
+                },
+            });
+        } else {
+            throw new BadRequestException('Order is not in a valid status to cancel');
+        }
+    }
+
+    async getOrders({
+        limit,
+        page,
+        type,
+        search,
+        searchBy,
+        from,
+        to,
+        skip,
+        order,
+    }: OrderQueryDTO): Promise<Pagination<GetOrderAdminDTO>> {
+        const keyword = search && search.trim().split(/\s+/).join(' & ');
+
+        const [orders, totalCount] = await Promise.all([
+            this.prisma.order.findMany({
+                where: {
+                    ...(type && { orderStatusId: type }),
+                    ...(searchBy == 1 && {
+                        items: { some: { item: { name: { search: keyword, mode: 'insensitive' } } } },
+                    }),
+                    ...(searchBy == 2 && { user: { username: { contains: search, mode: 'insensitive' } } }),
+                    AND: [
+                        { ...(from && to && { createdAt: { gte: dayjs(from).toISOString() } }) },
+                        { ...(to && { createdAt: { lte: dayjs(to).toISOString() } }) },
+                    ],
+                },
+                skip,
+                take: limit,
+                orderBy: {
+                    ...(order ? { createdAt: order } : { createdAt: 'desc' }),
+                },
+                select: {
+                    id: true,
+                    user: {
+                        select: {
+                            id: true,
+                            username: true,
+                        },
+                    },
+                    orderStatus: {
+                        select: {
+                            id: true,
+                            name: true,
+                        },
+                    },
+                    items: {
+                        select: {
+                            quantity: true,
+                            item: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    thumbnail: true,
+                                },
+                            },
+                        },
+                    },
+                    note: true,
+                    totalPrice: true,
+                    createdAt: true,
+                },
+            }),
+            this.prisma.order.count({
+                where: {
+                    ...(type && { orderStatusId: type }),
+                    ...(searchBy == 1 && {
+                        items: { some: { item: { name: { search: keyword, mode: 'insensitive' } } } },
+                    }),
+                    ...(searchBy == 2 && { user: { username: { contains: search, mode: 'insensitive' } } }),
+                    AND: [
+                        { ...(from && to && { createdAt: { gte: dayjs(from).toISOString() } }) },
+                        { ...(to && { createdAt: { lte: dayjs(to).toISOString() } }) },
+                    ],
+                },
+            }),
+        ]);
+
+        async function formatResult(result: any) {
+            return {
+                ...result,
+                items: result.items.map((e: any) => ({
+                    ...e.item,
+                    quantity: e.quantity,
+                })),
+            };
+        }
+        const items = await Promise.all(orders.map((order) => formatResult(order)));
+
+        return createPagination<GetOrderAdminDTO>({
+            items,
+            totalCount,
+            limit,
+            currentPage: page,
         });
     }
 

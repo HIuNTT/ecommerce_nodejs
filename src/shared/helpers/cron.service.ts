@@ -25,10 +25,6 @@ export class CronService {
     async sendNotiFlashSale() {
         this.logger.log('--> Start checking the flash sale start time');
 
-        const test = envNumber('TIME_SEND_NOTIFICATIONhhh');
-        console.log(test);
-        console.log(typeof test);
-
         const timeSendNoti = this.config.get('TIME_SEND_NOTIFICATION');
         const flashSale = await this.flashSaleService.findUpcomingFlashSale(timeSendNoti);
         if (flashSale) {
@@ -36,7 +32,6 @@ export class CronService {
 
             const template = 'send-email-noti-flash-sale.hbs';
             const path = join(__dirname, 'src/templates', template);
-            console.log(path);
             let contentFile = fs.readFileSync(path, 'utf-8');
 
             let userCount = 0;
@@ -47,7 +42,8 @@ export class CronService {
                     contentFile = contentFile.replace(
                         '{{startTime}}',
                         dayjs(flashSale.startTime).format('DD/MM/YYYY HH:mm:ss'),
-                    );
+                    ); // Có format, sẽ tự động đổi về giờ local của server
+
                     contentFile = contentFile.replace(
                         '{{endTime}}',
                         dayjs(flashSale.endTime).format('DD/MM/YYYY HH:mm:ss'),

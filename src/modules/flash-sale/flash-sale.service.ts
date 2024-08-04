@@ -10,6 +10,7 @@ import {
 import dayjs from 'dayjs';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import utc from 'dayjs/plugin/utc';
 
 import { FLASHSALE_STATUS } from '~/enums/status.enum';
 import { Order } from '~/interfaces/pager.dto';
@@ -19,6 +20,7 @@ import { GetItemFlashSaleDTO, ItemFlashSaleQueryDTO } from './dto/flash-sale-ite
 
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isSameOrBefore);
+dayjs.extend(utc);
 
 @Injectable()
 export class FlashSaleService {
@@ -271,7 +273,11 @@ export class FlashSaleService {
 
     // Dùng cho schedule
     async findUpcomingFlashSale(time: number) {
-        console.log(dayjs().add(time, 'minutes').toISOString());
+        console.log(dayjs());
+        console.log(new Date());
+        console.log(dayjs('2019-01-25').format('[YYYYescape] YYYY-MM-DDTHH:mm:ssZ[Z]'));
+        console.log(dayjs('2024-08-04 23:59:59').toDate());
+        console.log(dayjs().add(time, 'minutes').second(0).millisecond(0).toDate());
         return this.prisma.flashSale.findFirst({
             where: {
                 startTime: { equals: dayjs().add(time, 'minutes').second(0).millisecond(0).toDate() },

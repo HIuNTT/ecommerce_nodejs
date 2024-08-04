@@ -1,7 +1,12 @@
 import { IsNotEmpty, IsNumber } from 'class-validator';
 
-export class GetPaymentMethodDTO {
+export class PaymentMethodDTO {
     @IsNotEmpty()
     @IsNumber()
     id: number;
+}
+
+export class GetPaymentMethodDTO {
+    id: number;
+    name: string;
 }

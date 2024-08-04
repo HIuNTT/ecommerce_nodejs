@@ -5,3 +5,8 @@ export class AccountInfo {
     phone: string;
     avatarUrl: string;
 }
+
+export class GetOrderUserDTO {
+    id: string;
+    username: string;
+}

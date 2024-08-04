@@ -1,4 +1,4 @@
-import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { MailService } from '../../shared/mail/mail.service';
 import { generate } from 'otp-generator';
 import { OtpInfor } from './interfaces';
@@ -9,7 +9,6 @@ import { BodyEmail, VerifyEmail, VerifyPhone } from './dto/verify-otp.dto';
 import dayjs from 'dayjs';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../user/user.service';
-import { isEmpty } from 'lodash';
 
 @Injectable()
 export class OtpService {
