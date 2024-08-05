@@ -1,4 +1,7 @@
+import { ApiProperty } from '@nestjs/swagger';
+
 export class GetOrderItemDTO {
+    @ApiProperty({ description: 'Mã sản phẩm' })
     id: string;
     name: string;
     thumbnail: string;

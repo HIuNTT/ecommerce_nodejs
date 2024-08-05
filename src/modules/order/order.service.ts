@@ -15,7 +15,7 @@ import { isEmpty } from 'lodash';
 import { createPagination } from '~/helpers/paginate/create-pagination';
 import { Pagination } from '~/helpers/paginate/pagination';
 
-async function formatResult(result: any) {
+async function formatResult(result: any): Promise<GetOrderDetailDTO> {
     return {
         ...result,
         items: result.items.map((e: any) => ({
@@ -571,6 +571,14 @@ export class OrderService {
         return this.prisma.orderItem.findFirst({
             where: {
                 itemId,
+            },
+        });
+    }
+
+    async findOrderByStatusId(statusId: number): Promise<Order | undefined> {
+        return this.prisma.order.findFirst({
+            where: {
+                orderStatusId: statusId,
             },
         });
     }

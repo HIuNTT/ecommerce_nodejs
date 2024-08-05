@@ -1,10 +1,17 @@
-import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma/prisma.service';
-import { BodyEmail } from '../otp/dto/verify-otp.dto';
-import { User } from '@prisma/client';
+import { Address, User } from '@prisma/client';
 import { isEmpty } from 'lodash';
 import { AccountInfo } from './dto/user.dto';
-import { AccountUpdateDTO, ChangePasswordDTO } from '../auth/dto';
+import {
+    AccountUpdateDTO,
+    ChangePasswordDTO,
+    CreateAddressDTO,
+    DeleteAddressDTO,
+    GetAddressDTO,
+    SetDefaultAddressDTO,
+    UpdateAddressDTO,
+} from '../auth/dto';
 import { UpdatePasswordDTO } from './dto/password.dto';
 import { compare, hash } from '~/helpers/encryption.helper';
 
@@ -169,6 +176,101 @@ export class UserService {
                 role: 'USER',
                 email: { not: null },
                 isVerifiedEmail: true,
+            },
+        });
+    }
+
+    //Quản lý địa chỉ của người dùng
+
+    async getListAddress(userId: string): Promise<GetAddressDTO[]> {
+        return await this.prisma.address.findMany({
+            where: {
+                userId,
+            },
+            orderBy: {
+                isDefault: 'desc',
+                createdAt: 'desc',
+            },
+        });
+    }
+
+    async createAddress(payload: CreateAddressDTO, userId: string): Promise<void> {
+        const addressUser = await this.prisma.address.findFirst({
+            where: {
+                userId,
+            },
+        });
+
+        const isDefault = addressUser ? 0 : 1;
+
+        await this.prisma.address.create({
+            data: {
+                ...payload,
+                userId,
+                isDefault,
+            },
+        });
+    }
+
+    async updateAddress(userId: string, payload: UpdateAddressDTO): Promise<void> {
+        const { id, ...data } = payload;
+        const address = await this.findOneAddressUser(userId, id);
+
+        if (!address) {
+            throw new BadRequestException('Address not found');
+        }
+
+        await this.prisma.address.update({
+            where: {
+                id,
+                userId,
+            },
+            data,
+        });
+    }
+
+    async deleteAddress(userId: string, deleteBody: DeleteAddressDTO): Promise<void> {
+        const { id } = deleteBody;
+
+        const address = await this.findOneAddressUser(userId, id);
+
+        if (!address) {
+            throw new BadRequestException('Address not found');
+        }
+
+        await this.prisma.address.delete({
+            where: {
+                id,
+                userId,
+            },
+        });
+    }
+
+    async setDefaultAddress(userId: string, setDefaultBody: SetDefaultAddressDTO): Promise<void> {
+        const { id } = setDefaultBody;
+
+        const address = await this.findOneAddressUser(userId, id);
+
+        if (!address) {
+            throw new BadRequestException('Address not found');
+        }
+
+        await this.prisma.address.update({
+            where: {
+                id,
+                userId,
+            },
+            data: {
+                isDefault: 1,
+            },
+        });
+    }
+
+    async findOneAddressUser(userId: string, addressId: string): Promise<Address> {
+        return this.prisma.address.findUnique({
+            where: {
+                id: addressId,
+                userId,
             },
         });
     }

@@ -1,9 +1,9 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, UseGuards } from '@nestjs/common';
-import { ApiResult, Public, UserId } from '~/decorators';
+import { ApiResult, UserId } from '~/decorators';
 import { AccessTokenGuard } from '../guards';
 import { UserService } from '~/modules/user/user.service';
 import { AccountInfo } from '~/modules/user/dto/user.dto';
-import { AccountUpdateDTO, ChangePasswordDTO } from '../dto';
+import { AccountUpdateDTO } from '../dto';
 import { UpdatePasswordDTO } from '~/modules/user/dto/password.dto';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from '../auth.service';

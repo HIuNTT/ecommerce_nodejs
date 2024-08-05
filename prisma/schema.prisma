@@ -73,6 +73,7 @@ model Address {
   district  String // Quận/Huyện
   commune   String // Phường/Xã
   address   String // Địa chỉ cụ thể: số nhà, ngõ, thôn,...
+  isDefault Int      @default(0)
   user      User     @relation(fields: [userId], references: [id])
   userId    String
   createdAt DateTime @default(now())
@@ -185,6 +186,9 @@ model VoucherUsed {
   user      User    @relation(fields: [userId], references: [id])
   userId    String
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@id([voucherId, userId])
   @@map("vouchers_used")
 }
@@ -219,6 +223,9 @@ model OrderItem {
   itemId   Int
   Order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   orderId  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@id([itemId, orderId])
   @@map("order_items")
@@ -267,9 +274,11 @@ model FlashSalesItems {
 }
 
 model PaymentMethod {
-  id     Int     @id @default(autoincrement())
-  name   String
-  orders Order[]
+  id        Int      @id @default(autoincrement())
+  name      String
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("payment_methods")
 }

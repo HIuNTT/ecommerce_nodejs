@@ -1,5 +1,4 @@
 import { IsArray, IsInt, IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
-import { GetAddressDTO } from './address.dto';
 import { Type } from 'class-transformer';
 import { GetVoucherDTO } from '~/modules/voucher/dto';
 import { GetPaymentMethodDTO, PaymentMethodDTO } from './payment-method.dto';
@@ -8,6 +7,7 @@ import { GetOrderItemAdminDTO, GetOrderItemDTO } from './order-item.dto';
 import { PagerDTO } from '~/interfaces/pager.dto';
 import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { GetOrderUserDTO } from '~/modules/user/dto/user.dto';
+import { OrderAddressDTO } from '~/modules/auth/dto';
 
 export class CreateOrderItemDTO {
     @IsNotEmpty()
@@ -24,8 +24,8 @@ export class CreateOrderDTO {
     note?: string;
 
     @IsNotEmpty({ message: 'Please select address' })
-    @Type(() => GetAddressDTO)
-    address: GetAddressDTO;
+    @Type(() => OrderAddressDTO)
+    address: OrderAddressDTO;
 
     @IsOptional()
     @Type(() => GetVoucherDTO)
@@ -129,6 +129,8 @@ export class GetOrderDetailDTO {
     recipientAddress: string;
     note: string | null;
     orderStatus: GetOrderStatus;
+
+    @ApiProperty({ type: [GetOrderItemDTO] })
     items: GetOrderItemDTO[];
     paymentMethod: GetPaymentMethodDTO;
     voucherPrice: number;

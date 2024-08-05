@@ -34,7 +34,7 @@ export class OrderController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Người dùng xem chi tiết đơn hàng của bản thân' })
     @ApiResult({ type: GetOrderDetailDTO })
-    async getDetailById(@UserId() userId: string, @Query('orderId') orderId: string): Promise<GetOrderDetailDTO> {
+    async getDetailById(@UserId() userId: string, @Query() orderId: string): Promise<GetOrderDetailDTO> {
         return await this.orderService.getOrderDetailById(orderId, userId);
     }
 
