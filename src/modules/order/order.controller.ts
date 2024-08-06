@@ -8,6 +8,7 @@ import {
     GetOrderDTO,
     OrderQueryDTO,
     OrderUserQueryDTO,
+    RefundOrderDTO,
     SetOrderStatusDTO,
 } from './dto/order.dto';
 import { ApiResult, Roles, UserId } from '~/decorators';
@@ -71,6 +72,17 @@ Lọc theo trạng thái đơn hàng (dùng biến type):
     @HttpCode(HttpStatus.OK)
     async cancel(@UserId() userId: string, @Body() cancelReq: CancelOrderDTO): Promise<void> {
         await this.orderService.cancelOrder(userId, cancelReq);
+    }
+
+    @Post('refund')
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Người dùng yêu cầu trả hàng/hoàn tiền',
+        description: 'Chỉ những đơn hàng đã được giao mới được yêu cầu hoàn tiền/trả hàng',
+    })
+    @HttpCode(HttpStatus.OK)
+    async refund(@UserId() userId: string, @Body() refundReq: RefundOrderDTO): Promise<void> {
+        await this.orderService.refundOrder(userId, refundReq);
     }
 
     @Get()

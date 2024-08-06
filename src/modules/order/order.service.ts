@@ -8,6 +8,7 @@ import {
     GetOrderDTO,
     OrderQueryDTO,
     OrderUserQueryDTO,
+    RefundOrderDTO,
     SetOrderStatusDTO,
 } from './dto/order.dto';
 import dayjs from 'dayjs';
@@ -15,6 +16,7 @@ import { Order, OrderItem } from '@prisma/client';
 import { isEmpty } from 'lodash';
 import { createPagination } from '~/helpers/paginate/create-pagination';
 import { Pagination } from '~/helpers/paginate/pagination';
+import { ORDER_STATUS } from '~/enums/status.enum';
 
 async function formatResult(result: any): Promise<GetOrderDetailDTO> {
     return {
@@ -472,6 +474,35 @@ export class OrderService {
         } else {
             throw new BadRequestException('Order is not in a valid status to cancel');
         }
+    }
+
+    async refundOrder(userId: string, { orderId }: RefundOrderDTO): Promise<void> {
+        const order = await this.prisma.order.findUnique({
+            where: {
+                id: orderId,
+                userId,
+                orderStatus: {
+                    name: ORDER_STATUS.DELIVERED,
+                },
+            },
+        });
+        if (!order) {
+            throw new NotFoundException('Order not found or is not in a valid status to refund');
+        }
+
+        await this.prisma.order.update({
+            where: {
+                id: orderId,
+                userId,
+            },
+            data: {
+                orderStatus: {
+                    connect: {
+                        name: ORDER_STATUS.RETURNED_REFUND,
+                    },
+                },
+            },
+        });
     }
 
     async getOrders({

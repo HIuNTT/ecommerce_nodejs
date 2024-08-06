@@ -47,6 +47,8 @@ export class CancelOrderDTO {
     orderId: string;
 }
 
+export class RefundOrderDTO extends CancelOrderDTO {}
+
 export class OrderQueryDTO extends PagerDTO {
     @ApiPropertyOptional({
         minimum: 0,
