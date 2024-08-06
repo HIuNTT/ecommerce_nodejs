@@ -8,6 +8,7 @@ import {
     GetOrderDTO,
     OrderQueryDTO,
     OrderUserQueryDTO,
+    SetOrderStatusDTO,
 } from './dto/order.dto';
 import dayjs from 'dayjs';
 import { Order, OrderItem } from '@prisma/client';
@@ -32,7 +33,7 @@ export class OrderService {
     async createOrder(body: CreateOrderDTO, userId: string): Promise<void> {
         const { voucher, items, address, note, paymentMethod } = body;
 
-        const orderItems: Omit<OrderItem, 'orderId'>[] = [];
+        const orderItems: Omit<OrderItem, 'orderId' | 'createdAt' | 'updatedAt'>[] = [];
         let totalPrice = 0;
 
         // Duyệt toàn bộ list sản phẩm trong đơn hàng
@@ -458,6 +459,16 @@ export class OrderService {
                     orderStatusId: 6, // 6 là status CANCELLED
                 },
             });
+
+            // Nếu hủy đơn hàng thì cần hoàn lại voucher đã dùng bởi user
+            await this.prisma.voucherUsed.delete({
+                where: {
+                    voucherId_userId: {
+                        voucherId: order.voucherId,
+                        userId,
+                    },
+                },
+            });
         } else {
             throw new BadRequestException('Order is not in a valid status to cancel');
         }
@@ -473,6 +484,7 @@ export class OrderService {
         to,
         skip,
         order,
+        voucherId,
     }: OrderQueryDTO): Promise<Pagination<GetOrderAdminDTO>> {
         const keyword = search && search.trim().split(/\s+/).join(' & ');
 
@@ -483,6 +495,7 @@ export class OrderService {
                     ...(searchBy == 1 && {
                         items: { some: { item: { name: { search: keyword, mode: 'insensitive' } } } },
                     }),
+                    ...(voucherId && { voucherId }),
                     ...(searchBy == 2 && { user: { username: { contains: search, mode: 'insensitive' } } }),
                     AND: [
                         { ...(from && to && { createdAt: { gte: dayjs(from).toISOString() } }) },
@@ -557,6 +570,34 @@ export class OrderService {
             limit,
             currentPage: page,
         });
+    }
+
+    async updateOrderStatus({ orderId, statusId }: SetOrderStatusDTO): Promise<void> {
+        const order = await this.findOrderById(orderId);
+        if (!order) {
+            throw new NotFoundException('Order not found');
+        }
+
+        await this.prisma.order.update({
+            where: {
+                id: orderId,
+            },
+            data: {
+                orderStatusId: statusId,
+            },
+        });
+
+        if (statusId === 6) {
+            // Nếu hủy đơn hàng thì cần hoàn lại voucher đã dùng bởi user
+            await this.prisma.voucherUsed.delete({
+                where: {
+                    voucherId_userId: {
+                        voucherId: order.voucherId,
+                        userId: order.userId,
+                    },
+                },
+            });
+        }
     }
 
     async findOrderById(orderId: string): Promise<Order | undefined> {

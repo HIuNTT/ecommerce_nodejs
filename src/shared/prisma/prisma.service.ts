@@ -1,7 +1,7 @@
-import { INestApplication, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
 import dayjs from 'dayjs';
-import { FLASHSALE_STATUS } from '~/enums/status.enum';
+import { FLASHSALE_STATUS, VOUCHER_STATUS } from '~/enums/status.enum';
 import { env } from '~/global/env';
 
 @Injectable()
@@ -51,22 +51,32 @@ export class PrismaService
         await this.$connect();
     }
 
-    // statusExtension() {
-    //     return this.$extends({
-    //         result: {
-    //             flashSale: {
-    //                 status: {
-    //                     needs: { startTime: true, endTime: true },
-    //                     compute(flashSale) {
-    //                         if (dayjs().isBefore(flashSale.startTime)) return FLASHSALE_STATUS.UPCOMING;
-    //                         if (dayjs().isAfter(flashSale.endTime)) return FLASHSALE_STATUS.ENDED;
-    //                         return FLASHSALE_STATUS.ONGOING;
-    //                     },
-    //                 },
-    //             },
-    //         },
-    //     });
-    // }
+    statusExtension() {
+        return this.$extends({
+            result: {
+                flashSale: {
+                    status: {
+                        needs: { startTime: true, endTime: true },
+                        compute(flashSale) {
+                            if (dayjs().isBefore(flashSale.startTime)) return FLASHSALE_STATUS.UPCOMING;
+                            if (dayjs().isAfter(flashSale.endTime)) return FLASHSALE_STATUS.ENDED;
+                            return FLASHSALE_STATUS.ONGOING;
+                        },
+                    },
+                },
+                voucher: {
+                    status: {
+                        needs: { startTime: true, endTime: true },
+                        compute(voucher) {
+                            if (dayjs().isBefore(voucher.startTime)) return VOUCHER_STATUS.UPCOMING;
+                            if (dayjs().isAfter(voucher.endTime)) return VOUCHER_STATUS.ENDED;
+                            return VOUCHER_STATUS.ONGOING;
+                        },
+                    },
+                },
+            },
+        });
+    }
 
     async onModuleDestroy() {
         await this.$disconnect();

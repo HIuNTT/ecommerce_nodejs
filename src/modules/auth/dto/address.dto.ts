@@ -10,7 +10,7 @@ export class OrderAddressDTO {
     @IsNotEmpty()
     fullname: string;
 
-    @IsPhoneNumber('VI')
+    @IsPhoneNumber('VN')
     phone: string;
 
     @IsString()
@@ -50,7 +50,7 @@ export class CreateAddressDTO {
     fullname: string;
 
     @ApiProperty({ description: 'Số điện thoại người mua để gọi khi giao hàng đến nơi' })
-    @IsPhoneNumber('VI')
+    @IsPhoneNumber('VN')
     phone: string;
 
     @ApiProperty({ description: 'Tỉnh/Thành phố', example: 'Hà Nội' })

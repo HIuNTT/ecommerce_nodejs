@@ -52,7 +52,7 @@ import configs from './configs';
         OrderModule,
     ],
     providers: [
-        { provide: APP_FILTER, useClass: AllExceptionsFilter },
+        // { provide: APP_FILTER, useClass: AllExceptionsFilter },
 
         { provide: APP_INTERCEPTOR, useFactory: () => new TimeoutInterceptor(20 * 1000) },
         { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },

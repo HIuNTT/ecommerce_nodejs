@@ -27,9 +27,10 @@ export class AddressController {
         await this.userService.createAddress(payload, userId);
     }
 
-    @Put('update')
+    @Post('update')
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Cập nhật thông tin địa chỉ' })
+    @HttpCode(HttpStatus.OK)
     async update(@UserId() userId: string, @Body() payload: UpdateAddressDTO): Promise<void> {
         await this.userService.updateAddress(userId, payload);
     }
@@ -43,6 +44,9 @@ export class AddressController {
     }
 
     @Post('set-default-address')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Thiết lập địa chỉ mặc định' })
+    @HttpCode(HttpStatus.OK)
     async setDefault(@UserId() userId: string, @Body() setDefaultBody: SetDefaultAddressDTO): Promise<void> {
         await this.userService.setDefaultAddress(userId, setDefaultBody);
     }

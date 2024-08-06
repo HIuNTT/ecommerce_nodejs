@@ -1,4 +1,4 @@
-import { IsArray, IsInt, IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsArray, IsIn, IsInt, IsISO8601, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { GetVoucherDTO } from '~/modules/voucher/dto';
 import { GetPaymentMethodDTO, PaymentMethodDTO } from './payment-method.dto';
@@ -79,6 +79,11 @@ export class OrderQueryDTO extends PagerDTO {
     @IsOptional()
     @IsISO8601()
     to?: string;
+
+    @ApiPropertyOptional({ description: 'Lọc theo voucher' })
+    @IsOptional()
+    @IsInt()
+    voucherId?: number;
 }
 
 export class GetOrderAdminDTO {
@@ -136,4 +141,17 @@ export class GetOrderDetailDTO {
     voucherPrice: number;
     totalPrice: number;
     createdAt: Date;
+}
+
+export class SetOrderStatusDTO {
+    @ApiProperty({ description: 'Id của đơn hàng' })
+    @IsString()
+    @IsNotEmpty()
+    orderId: string;
+
+    @ApiProperty({ minimum: 1, maximum: 8, description: 'Id của trạng thái đơn hàng' })
+    @IsInt()
+    @Min(1)
+    @Max(8)
+    statusId: number;
 }

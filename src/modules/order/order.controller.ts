@@ -8,6 +8,7 @@ import {
     GetOrderDTO,
     OrderQueryDTO,
     OrderUserQueryDTO,
+    SetOrderStatusDTO,
 } from './dto/order.dto';
 import { ApiResult, Roles, UserId } from '~/decorators';
 import { AccessTokenGuard } from '../auth/guards';
@@ -15,6 +16,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ROLE } from '~/enums/role.enum';
 import { Pagination } from '~/helpers/paginate/pagination';
+import { UpdateOrderStatusDTO } from './dto/order-status.dto';
 
 @ApiTags('Order - Đơn hàng')
 @Controller('order')
@@ -62,7 +64,10 @@ Lọc theo trạng thái đơn hàng (dùng biến type):
 
     @Post('cancel')
     @ApiBearerAuth()
-    @ApiOperation({ summary: 'Người dùng hủy đơn hàng' })
+    @ApiOperation({
+        summary: 'Người dùng hủy đơn hàng',
+        description: 'Nếu hủy đơn hàng thì cần hoàn lại voucher đã dùng bởi user (coi như chưa dùng voucher này)',
+    })
     @HttpCode(HttpStatus.OK)
     async cancel(@UserId() userId: string, @Body() cancelReq: CancelOrderDTO): Promise<void> {
         await this.orderService.cancelOrder(userId, cancelReq);
@@ -74,6 +79,8 @@ Lọc theo trạng thái đơn hàng (dùng biến type):
         summary: 'Danh sách đơn hàng (Trang admin)',
         description: `
 Lọc theo ngày tạo đơn, từ ngày... đến ngày...
+
+Lọc theo voucher
 
 Lọc theo trạng thái đơn hàng (dùng biến type):
 
@@ -92,5 +99,15 @@ Lọc theo trạng thái đơn hàng (dùng biến type):
     @UseGuards(RolesGuard)
     async list(@Query() query: OrderQueryDTO): Promise<Pagination<GetOrderAdminDTO>> {
         return await this.orderService.getOrders(query);
+    }
+
+    @Post('update-status')
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Admin cập nhật trạng thái đơn hàng' })
+    @Roles(ROLE.ADMIN, ROLE.MANAGER)
+    @UseGuards(RolesGuard)
+    @HttpCode(HttpStatus.OK)
+    async updateStatus(@Body() payload: SetOrderStatusDTO): Promise<void> {
+        await this.orderService.updateOrderStatus(payload);
     }
 }

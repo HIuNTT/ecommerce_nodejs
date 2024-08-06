@@ -7,9 +7,7 @@ import { extendedPrisma } from './prisma.extension';
     providers: [
         {
             provide: PrismaService,
-            useFactory: () => {
-                return extendedPrisma;
-            },
+            useFactory: () => new PrismaService().statusExtension(),
         },
     ],
     exports: [PrismaService],

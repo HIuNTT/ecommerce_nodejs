@@ -41,6 +41,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
             return exception.getStatus();
         } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
             switch (exception.code) {
+                case 'P2000':
+                    return HttpStatus.BAD_REQUEST;
                 case 'P2002':
                     return HttpStatus.CONFLICT;
                 case 'P2003':
@@ -59,18 +61,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         if (exception instanceof HttpException) {
             return exception.message;
         } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-            switch (exception.code) {
-                case 'P2001':
-                    return `[${exception.meta?.target as any}] không tồn tại`;
-                case 'P2002':
-                    return `[${exception.meta?.target as any}]` + 'đã được sử dụng';
-                case 'P2003':
-                    return `[${exception.meta?.target as any}]` + 'không hợp lệ';
-                case 'P2025':
-                    return 'Bản ghi không tồn tại';
-                default:
-                    return exception.message.replace(/\n/g, '');
-            }
+            return exception.message.replace(/\n/g, '');
         } else {
             return (exception as any)?.response?.message ?? `${exception}`;
         }
