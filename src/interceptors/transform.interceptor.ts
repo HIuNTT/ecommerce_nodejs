@@ -22,6 +22,7 @@ export class TransformInterceptor implements NestInterceptor {
         // Xử lý các tham số Query, chuyển các tham số mảng thành mảng: ?a[]=1&a[]=2 => { a: [1, 2] } => kết quả cuối cùng là 1 object chứa các tham số query
         // Tương tự, nếu ?a=1,2 => { a: [1, 2] }
         request.query = qs.parse(request.url.split('?').at(1), { comma: true });
+        console.log(request.query);
 
         return next.handle().pipe(
             map((data) => {

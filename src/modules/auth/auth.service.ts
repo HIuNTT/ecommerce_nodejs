@@ -1,8 +1,9 @@
 import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { Response } from 'express';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { ForgotPasswordDTO, RegisterDTO } from './dto';
 import { compare, hash } from '../../helpers/encryption.helper';
-import { IPayloadToken, Tokens } from './interfaces';
+import { IPayloadToken, ITokens, Token } from './interfaces';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { LoginDTO } from './dto/login.dto';
@@ -12,7 +13,7 @@ import { MailService } from '~/shared/mail/mail.service';
 import { join } from 'path';
 import fs from 'fs';
 import { ISecurityConfig, SecurityConfig } from '~/configs/security.config';
-import passport from 'passport';
+import { CookieConfig, ICookieConfig } from '~/configs/cookie.config';
 
 @Injectable()
 export class AuthService {
@@ -23,48 +24,45 @@ export class AuthService {
         private readonly userService: UserService,
         private readonly mailService: MailService,
         @Inject(SecurityConfig.KEY) private securityConfig: ISecurityConfig,
+        @Inject(CookieConfig.KEY) private cookieConfig: ICookieConfig,
     ) {}
 
-    async register(bodyReq: RegisterDTO): Promise<Tokens> {
-        try {
-            const { password, ...data } = bodyReq;
+    async register(bodyReq: RegisterDTO, res: Response): Promise<Token> {
+        const { password, ...data } = bodyReq;
 
-            const existedUser = await this.prisma.user.findFirst({
-                where: {
-                    OR: [
-                        {
-                            username: data.username,
-                        },
-                        {
-                            email: data.email,
-                        },
-                        {
-                            phone: data.phone,
-                        },
-                    ],
-                },
-            });
+        const [existedUsername, existedPhone, existedEmail] = await Promise.all([
+            this.userService.findUserByUsername(data.username),
+            this.userService.findUserByPhone(data.phone),
+            this.userService.findUserByEmail(data.email),
+        ]);
 
-            if (existedUser) {
-                throw new BadRequestException('User already exists');
-            }
-
-            const newUser = await this.prisma.user.create({
-                data: {
-                    ...data,
-                    password: await hash(password),
-                },
-            });
-
-            const tokens = await this.generateTokens({ userId: newUser.id });
-            await this.updateRefreshToken(newUser.id, tokens.refresh_token);
-            return tokens;
-        } catch (error) {
-            throw error;
+        if (existedUsername) {
+            throw new BadRequestException('Tên đăng nhập đã tồn tại');
         }
+
+        if (existedPhone) {
+            throw new BadRequestException('Số điện thoại đã tồn tại');
+        }
+
+        if (existedEmail) {
+            throw new BadRequestException('Email đã tồn tại');
+        }
+
+        const newUser = await this.prisma.user.create({
+            data: {
+                ...data,
+                password: await hash(password),
+            },
+        });
+
+        const tokens = await this.generateTokens({ userId: newUser.id });
+        await this.updateRefreshToken(newUser.id, tokens.refresh_token);
+
+        res.cookie(this.securityConfig.refreshToken, tokens.refresh_token, this.cookieConfig);
+        return { access_token: tokens.access_token };
     }
 
-    async login(bodyReq: LoginDTO): Promise<Tokens> {
+    async login(bodyReq: LoginDTO, res: Response): Promise<Token> {
         const { username, reqPassword } = bodyReq;
         const data = await this.prisma.user.findFirst({
             where: {
@@ -83,22 +81,24 @@ export class AuthService {
         });
 
         if (!data) {
-            throw new ForbiddenException('Access Denied');
+            throw new ForbiddenException('Sai thông tin đăng nhập!');
         }
 
         const { password, ...user } = data;
         console.log(password, reqPassword, username);
 
         if (!(await compare(reqPassword, password))) {
-            throw new ForbiddenException('Access Denied');
+            throw new ForbiddenException('Sai thông tin đăng nhập!');
         }
 
         const tokens = await this.generateTokens({ userId: user.id });
         await this.updateRefreshToken(user.id, tokens.refresh_token);
-        return tokens;
+
+        res.cookie(this.securityConfig.refreshToken, tokens.refresh_token, this.cookieConfig);
+        return { access_token: tokens.access_token };
     }
 
-    async logout(userId: string): Promise<void> {
+    async logout(userId: string, res: Response): Promise<void> {
         const { count } = await this.prisma.user.updateMany({
             where: {
                 id: userId,
@@ -112,34 +112,34 @@ export class AuthService {
         });
 
         if (!count) {
-            throw new BadRequestException('Already logout');
+            throw new BadRequestException('Đã đăng xuất rồi');
         }
+
+        res.clearCookie(this.securityConfig.refreshToken);
     }
 
-    async refreshToken(userId: string, refreshToken: string): Promise<Tokens> {
-        const user = await this.prisma.user.findUnique({
-            where: {
-                id: userId,
-            },
-        });
+    async refreshToken(userId: string, refreshToken: string, res: Response): Promise<Token> {
+        const user = await this.userService.findUserById(userId);
 
         if (!user) {
-            throw new ForbiddenException('Access Denied');
+            throw new ForbiddenException('Truy cập bị từ chối');
         }
 
         if (!(await compare(refreshToken, user.refreshToken))) {
-            throw new ForbiddenException('Access Denied');
+            throw new ForbiddenException('Truy cập bị từ chối');
         }
 
         const tokens = await this.generateTokens({ userId: user.id });
         await this.updateRefreshToken(user.id, tokens.refresh_token);
-        return tokens;
+
+        res.cookie(this.securityConfig.refreshToken, tokens.refresh_token, this.cookieConfig);
+        return { access_token: tokens.access_token };
     }
 
     //Các hàm phụ
 
     // Hàm cập nhật refresh-token trong bảng Users
-    async updateRefreshToken(userId: string, refreshToken: string) {
+    async updateRefreshToken(userId: string, refreshToken: string): Promise<void> {
         await this.prisma.user.update({
             where: {
                 id: userId,
@@ -151,7 +151,7 @@ export class AuthService {
     }
 
     // Hàm sinh ra access-token và refresh-token
-    async generateTokens(payload: IPayloadToken): Promise<Tokens> {
+    async generateTokens(payload: IPayloadToken): Promise<ITokens> {
         const [at, rt] = await Promise.all([
             this.jwtService.signAsync(
                 {

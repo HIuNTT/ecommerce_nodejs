@@ -1,13 +1,19 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class Tokens {
+export class Token {
     @ApiProperty({ description: 'Access token JWT' })
     access_token: string;
+}
 
-    @ApiProperty({ description: 'Refresh token JWT' })
+export interface ITokens {
+    access_token: string;
     refresh_token: string;
 }
 
 export interface IPayloadToken {
     userId: string;
 }
+
+export type JwtPayload = {
+    sub: string;
+};

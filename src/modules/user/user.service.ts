@@ -145,16 +145,30 @@ export class UserService {
         return this.prisma.user.findUnique({
             where: {
                 id: userId,
-                isActived: true,
             },
         });
     }
 
-    async findUserByEmail(email: string) {
+    async findUserByUsername(username: string): Promise<User | undefined> {
+        return this.prisma.user.findUnique({
+            where: {
+                username,
+            },
+        });
+    }
+
+    async findUserByEmail(email: string): Promise<User | undefined> {
         return this.prisma.user.findFirst({
             where: {
                 email: email,
-                isActived: true,
+            },
+        });
+    }
+
+    async findUserByPhone(phone: string): Promise<User | undefined> {
+        return this.prisma.user.findFirst({
+            where: {
+                phone,
             },
         });
     }

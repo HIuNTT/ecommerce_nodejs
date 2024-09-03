@@ -7,15 +7,17 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
 import { ConfigService } from '@nestjs/config';
 import { setupSwagger } from './setup-swagger';
-import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+// import helmet from 'helmet';
 import { isDev } from './global/env';
+import { appRegToken } from './configs';
 
 async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
     const configService = app.get(ConfigService);
 
-    const { port, globalPrefix, version } = configService.get('app', { infer: true });
+    const { port, globalPrefix, version } = configService.get(appRegToken, { infer: true });
 
     // app.use(
     //     helmet({
@@ -27,7 +29,8 @@ async function bootstrap() {
     //         },
     //     }),
     // );
-    app.enableCors({ origin: '*', credentials: true });
+    app.use(cookieParser());
+    app.enableCors({ origin: 'http://localhost:5173', credentials: true });
 
     app.useGlobalPipes(
         new ValidationPipe({

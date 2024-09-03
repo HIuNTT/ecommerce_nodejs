@@ -2,7 +2,6 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { CreateItemDTO, GetItemDetailDTO, GetItemDTO, ItemQueryDTO } from './dto/item.dto';
 import slugify from 'slugify';
-import { Item } from '@prisma/client';
 import { UpdateItemDTO } from './dto/update-item.dto';
 import { isArray, isNumber } from 'lodash';
 import { OrderService } from '../order/order.service';
@@ -18,6 +17,8 @@ export class ItemService {
     ) {}
 
     async getListItem(filters: ItemQueryDTO): Promise<Pagination<GetItemDTO>> {
+        console.log(filters);
+
         const { limit, page, order, sortBy, search, categoryId, min, max, actived, user } = filters;
 
         console.log(categoryId);

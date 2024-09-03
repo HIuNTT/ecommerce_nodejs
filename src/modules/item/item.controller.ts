@@ -1,10 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ItemService } from './item.service';
 import { CreateItemDTO, GetItemDetailDTO, GetItemDTO, ItemQueryDTO } from './dto/item.dto';
-import { Item } from '@prisma/client';
 import { ApiResult, IdParam, Roles } from '~/decorators';
 import { UpdateItemDTO } from './dto/update-item.dto';
-import { Filters } from '~/interfaces';
 import { AccessTokenGuard } from '../auth/guards';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ROLE } from '~/enums/role.enum';

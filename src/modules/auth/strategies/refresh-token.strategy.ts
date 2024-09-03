@@ -3,12 +3,13 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ISecurityConfig, SecurityConfig } from '~/configs/security.config';
+import { JwtPayload } from '../interfaces';
 
 @Injectable()
 export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
     constructor(@Inject(SecurityConfig.KEY) private securityConfig: ISecurityConfig) {
         super({
-            jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+            jwtFromRequest: ExtractJwt.fromExtractors([(req: Request) => req.cookies[securityConfig.refreshToken]]),
             secretOrKey: securityConfig.refreshSecret,
             ignoreExpiration: false, // Nếu = true thì sẽ vẫn chấp nhận token hết hạn
             passReqToCallback: true,
@@ -18,8 +19,8 @@ export class RefreshTokenStrategy extends PassportStrategy(Strategy, 'jwt-refres
     }
 
     // sau khi giải mã sẽ đưa phần payload vào biến payload bên dưới, để lấy ra thì req.user
-    validate(req: Request, payload: any) {
-        const refreshToken = req.headers.authorization?.replace('Bearer', '').trim();
+    validate(req: Request, payload: JwtPayload) {
+        const refreshToken = req.cookies[this.securityConfig.refreshToken];
 
         return {
             ...payload,

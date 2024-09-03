@@ -529,7 +529,7 @@ export class OrderService {
                     ...(voucherId && { voucherId }),
                     ...(searchBy == 2 && { user: { username: { contains: search, mode: 'insensitive' } } }),
                     AND: [
-                        { ...(from && to && { createdAt: { gte: dayjs(from).toISOString() } }) },
+                        { ...(from && { createdAt: { gte: dayjs(from).toISOString() } }) },
                         { ...(to && { createdAt: { lte: dayjs(to).toISOString() } }) },
                     ],
                 },

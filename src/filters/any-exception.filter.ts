@@ -19,7 +19,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         const url = request.url!;
 
         const status = this.getStatus(exception);
-        let message = this.getErrorMessage(exception);
+        const message = this.getErrorMessage(exception);
 
         if (status === HttpStatus.INTERNAL_SERVER_ERROR) {
             Logger.error(exception, undefined, 'Catch');

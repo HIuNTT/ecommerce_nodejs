@@ -1,13 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ChangePasswordDTO, ForgotPasswordDTO, RegisterDTO } from './dto';
-import { Tokens } from './interfaces';
 import { LoginDTO } from './dto/login.dto';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiResult } from '~/decorators';
 import { UserService } from '../user/user.service';
+import { Token } from './interfaces';
 
 @ApiTags('Auth - Xác thực')
 @Controller('auth')
@@ -19,28 +19,28 @@ export class AuthController {
 
     @Post('register')
     @ApiOperation({ summary: 'Đăng ký tài khoản' })
-    @ApiResult({ type: Tokens })
+    @ApiResult({ type: Token })
     @HttpCode(HttpStatus.OK)
-    async register(@Body() bodyReq: RegisterDTO): Promise<Tokens> {
-        return this.authService.register(bodyReq);
+    async register(@Body() bodyReq: RegisterDTO, @Res({ passthrough: true }) res: Response): Promise<Token> {
+        return this.authService.register(bodyReq, res);
     }
 
     @Post('login')
     @ApiOperation({ summary: 'Đăng nhập' })
-    @ApiResult({ type: Tokens })
+    @ApiResult({ type: Token })
     @HttpCode(HttpStatus.OK)
-    async login(@Body() bodyReq: LoginDTO): Promise<Tokens> {
-        return this.authService.login(bodyReq);
+    async login(@Body() bodyReq: LoginDTO, @Res({ passthrough: true }) res: Response): Promise<Token> {
+        return this.authService.login(bodyReq, res);
     }
 
     @UseGuards(RefreshTokenGuard)
     @Post('refresh-token')
     @ApiOperation({ summary: 'Làm mới token' })
-    @ApiResult({ type: Tokens })
+    @ApiResult({ type: Token })
     @HttpCode(HttpStatus.OK)
-    async refreshToken(@Req() req: Request): Promise<Tokens> {
+    async refreshToken(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<Token> {
         const user = req.user;
-        return await this.authService.refreshToken(user['sub'], user['refreshToken']);
+        return await this.authService.refreshToken(user['sub'], user['refreshToken'], res);
     }
 
     @Post('send-reset-email')

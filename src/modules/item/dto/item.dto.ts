@@ -1,12 +1,11 @@
-import { IsArray, IsBoolean, IsNotEmpty, IsNumber, IsNumberString, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 import { CreateGalleryDTO } from './gallery.dto';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PagerDTO } from '~/interfaces/pager.dto';
 import { ApiProperty, ApiPropertyOptional, OmitType, PickType } from '@nestjs/swagger';
 import { GetCategoryDTO } from '~/modules/category/dto';
 import { GetFlashSaleItemDTO } from '~/modules/flash-sale/dto/flash-sale-item.dto';
-import { isNumber, isString } from 'lodash';
 
 export class CatConnectedDTO {
     @IsNotEmpty()

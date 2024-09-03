@@ -16,9 +16,8 @@ export class RegisterDTO {
     email?: string;
 
     @ApiProperty({ description: 'Số điện thoại' })
-    @IsOptional()
     @IsPhoneNumber('VN')
-    phone?: string;
+    phone: string;
 
     @ApiProperty({ description: 'Mật khẩu', example: 'Admin123456*' })
     @IsNotEmpty()

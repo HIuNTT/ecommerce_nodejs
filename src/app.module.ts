@@ -1,4 +1,4 @@
-import { ClassSerializerInterceptor, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { AuthModule } from './modules/auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { UserModule } from './modules/user/user.module';
@@ -52,7 +52,7 @@ import configs from './configs';
         OrderModule,
     ],
     providers: [
-        // { provide: APP_FILTER, useClass: AllExceptionsFilter },
+        { provide: APP_FILTER, useClass: AllExceptionsFilter },
 
         { provide: APP_INTERCEPTOR, useFactory: () => new TimeoutInterceptor(20 * 1000) },
         { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },

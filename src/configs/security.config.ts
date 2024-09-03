@@ -8,6 +8,7 @@ export const SecurityConfig = registerAs(securityRegToken, () => ({
     jwtExpire: env('JWT_EXPIRE'),
     refreshSecret: env('REFRESH_TOKEN_SECRET'),
     refreshExpire: env('REFRESH_TOKEN_EXPIRE'),
+    refreshToken: env('REFRESH_TOKEN'),
 }));
 
 export type ISecurityConfig = ConfigType<typeof SecurityConfig>;

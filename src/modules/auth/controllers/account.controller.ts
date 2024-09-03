@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Put, Res, UseGuards } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiResult, UserId } from '~/decorators';
 import { AccessTokenGuard } from '../guards';
 import { UserService } from '~/modules/user/user.service';
@@ -40,7 +41,7 @@ export class AccountController {
 
     @Get('logout')
     @ApiOperation({ summary: 'Đăng xuất tài khoản' })
-    async logout(@UserId() userId: string): Promise<void> {
-        await this.authService.logout(userId);
+    async logout(@UserId() userId: string, @Res({ passthrough: true }) res: Response): Promise<void> {
+        await this.authService.logout(userId, res);
     }
 }
