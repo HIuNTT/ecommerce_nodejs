@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import { Response } from 'express';
 import { PrismaService } from '~/shared/prisma/prisma.service';
 import { ForgotPasswordDTO, RegisterDTO } from './dto';
@@ -14,6 +14,7 @@ import { join } from 'path';
 import fs from 'fs';
 import { ISecurityConfig, SecurityConfig } from '~/configs/security.config';
 import { CookieConfig, ICookieConfig } from '~/configs/cookie.config';
+import { isEmpty } from 'lodash';
 
 @Injectable()
 export class AuthService {
@@ -30,22 +31,29 @@ export class AuthService {
     async register(bodyReq: RegisterDTO, res: Response): Promise<Token> {
         const { password, ...data } = bodyReq;
 
-        const [existedUsername, existedPhone, existedEmail] = await Promise.all([
+        const [usedUsername, usedPhone, usedEmail] = await Promise.all([
             this.userService.findUserByUsername(data.username),
             this.userService.findUserByPhone(data.phone),
-            this.userService.findUserByEmail(data.email),
+            data.email && this.userService.findUserByEmail(data.email),
         ]);
 
-        if (existedUsername) {
-            throw new BadRequestException('Tên đăng nhập đã tồn tại');
+        const errors: { field: keyof RegisterDTO; message: string }[] = [];
+
+        if (usedUsername) {
+            errors.push({ field: 'username', message: 'Tên đăng nhập đã được sử dụng' });
         }
 
-        if (existedPhone) {
-            throw new BadRequestException('Số điện thoại đã tồn tại');
+        if (usedPhone) {
+            errors.push({ field: 'phone', message: 'Số điện thoại đã được sử dụng' });
         }
 
-        if (existedEmail) {
-            throw new BadRequestException('Email đã tồn tại');
+        if (usedEmail) {
+            errors.push({ field: 'email', message: 'Email đã được sử dụng' });
+        }
+
+        if (!isEmpty(errors)) {
+            const resError = errors.map(({ field, message }) => `${field}:${message}`).join(',');
+            throw new ConflictException(resError);
         }
 
         const newUser = await this.prisma.user.create({

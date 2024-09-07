@@ -6,7 +6,7 @@ import { env, envBoolean } from '~/global/env';
 export const cookieRegToken = 'cookie';
 
 export const CookieConfig = registerAs(cookieRegToken, () => ({
-    // domain: env('COOKIE_DOMAIN'),
+    domain: env('COOKIE_DOMAIN'),
     path: env('COOKIE_PATH'),
     maxAge: ms(env('COOKIE_MAX_AGE')),
     httpOnly: envBoolean('COOKIE_HTTP_ONLY'),
